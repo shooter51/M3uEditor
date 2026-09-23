@@ -2,7 +2,7 @@
 # VPS from the GitHub branch and (re)deploys deploy/stack.yml as the swarm stack "epg".
 # Re-run this project to ship a new version. Project env: M3U_URL, EPG_ACCESS_TOKEN,
 # EPG_GROUP_FILTER, EPG_REFRESH_HOURS, EPG_REPORT_AUTH (optional), EPG_REF (default epg-remap),
-# EPG_HOST (public hostname Traefik routes to the service).
+# TS_AUTHKEY (Tailscale auth key tagged tag:epg), TS_HOSTNAME (default epg).
 services:
   deployer:
     image: docker:27-cli
@@ -17,7 +17,8 @@ services:
       EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
       EPG_OVERRIDES: ${EPG_OVERRIDES:-https://raw.githubusercontent.com/shooter51/M3uEditor/epg-remap/tools/epg-remap/deploy/overrides.json}
       EPG_REF: ${EPG_REF:-epg-remap}
-      EPG_HOST: ${EPG_HOST:-epg.outherehq.com}
+      TS_AUTHKEY: ${TS_AUTHKEY:-}
+      TS_HOSTNAME: ${TS_HOSTNAME:-epg}
     entrypoint: ["sh", "-ec"]
     command:
       - |
@@ -28,4 +29,7 @@ services:
         wget -qO /tmp/stack.yml "https://raw.githubusercontent.com/shooter51/M3uEditor/$$EPG_REF/tools/epg-remap/deploy/stack.yml"
         docker stack deploy --detach=false -c /tmp/stack.yml epg
         docker service ls --filter name=epg_ --format '{{.Name}} {{.Replicas}} {{.Image}}'
+        echo "--- tailscale sidecar log"
+        sleep 30
+        docker service logs --raw --tail 40 epg_tailscale 2>&1 | grep -viE 'authkey|tskey' || true
         echo "deployed"

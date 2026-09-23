@@ -211,22 +211,24 @@ See `config.example.json`. Paths in it are relative to the config file.
 | `accessToken` | empty | secret path segment for the public URL |
 | `reportAuth` | empty | `user:pass` basic auth on `/report.txt` |
 
-## Deploying (KVM 8)
+## Deploying (KVM 8, Tailscale only)
 
-The VPS's Traefik (from the `permit` swarm stack) routes swarm services on the overlay network
-`permit-net`, using the `websecure` entry point and the `letsencrypt` resolver. There's no
-SSH, so the deploy goes through Hostinger's Docker Manager:
+The guide has no public route. The swarm stack `epg` (`deploy/stack.yml`) runs the server on
+a private overlay network, next to a Tailscale sidecar. The sidecar joins the tailnet as `epg`
+(tag `tag:epg`) and serves the guide over HTTPS at `https://epg.<tailnet>.ts.net` (userspace
+networking, no host changes). In the tailnet policy, `tag:stb` (the TV box) may reach only
+`tag:epg:443`.
 
-1. Create the Docker Manager project `epg-remap` from `deploy/hostinger-deployer.yml`, with
-   these env values: `M3U_URL`, `EPG_ACCESS_TOKEN`, `EPG_GROUP_FILTER=^US[|]`,
+There's no SSH, so the deploy goes through Hostinger's Docker Manager:
+
+1. The Docker Manager project `epg-remap` runs `deploy/hostinger-deployer.yml` with env
+   `M3U_URL`, `TS_AUTHKEY` (a key tagged `tag:epg`), `EPG_GROUP_FILTER=^US[|]` and
    `EPG_REFRESH_HOURS=2`.
-2. It runs once: it builds `epg-remap:<timestamp>` on the VPS from the `epg-remap` branch,
-   then runs `docker stack deploy` for `deploy/stack.yml` as stack `epg`.
-3. To ship a new version, push the branch and re-run the project.
-4. Cloudflare DNS (outherehq.com zone): `A` record `epg` → `62.72.3.35` (DNS only until the certificate is
-   issued).
-5. TiviMate EPG source: `https://epg.outherehq.com` (or `https://epg.outherehq.com/<EPG_ACCESS_TOKEN>`
-   if a token is set).
+2. It builds `epg-remap:<timestamp>` on the VPS from the `epg-remap` branch, runs
+   `docker stack deploy`, and prints the sidecar's log.
+3. To ship a new version, push the branch and re-run the project. The Tailscale login
+   persists in the `tsstate` volume, so the auth key is only used once.
+4. TiviMate EPG source: `https://epg.<tailnet>.ts.net/epg.xml.gz`.
 
 On a Dokploy host, use `docker-compose.dokploy.yml` instead. Without either, `docker compose up -d --build` with the plain `docker-compose.yml` runs
 it on `127.0.0.1:8080` behind whatever proxy you have. It reads `M3U_URL` from `./.env`.
