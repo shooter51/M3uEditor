@@ -1,0 +1,39 @@
+# Swarm stack for epg-remap on the KVM 8. The host's Traefik (permit stack) uses the swarm
+# provider, so routing labels live under deploy.labels and the service joins permit-net.
+# Deployed by deploy/hostinger-deployer.yml; values come from the deployer's environment.
+services:
+  epg-remap:
+    image: epg-remap:${EPG_IMAGE_TAG:-latest}
+    init: true
+    environment:
+      M3U_URL: ${M3U_URL:?M3U_URL must be set}
+      EPG_ACCESS_TOKEN: ${EPG_ACCESS_TOKEN:-}
+      EPG_REPORT_AUTH: ${EPG_REPORT_AUTH:-}
+      EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-2}
+      EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
+      PORT: "8080"
+    volumes:
+      - epgdata:/data
+    networks:
+      - permit-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: 512M
+      labels:
+        - traefik.enable=true
+        - traefik.swarm.network=permit-net
+        - traefik.http.routers.epg-remap.rule=Host(`${EPG_HOST:-epg.tomshappyplace.com}`)
+        - traefik.http.routers.epg-remap.entrypoints=websecure
+        - traefik.http.routers.epg-remap.tls.certresolver=letsencrypt
+        - traefik.http.services.epg-remap.loadbalancer.server.port=8080
+
+volumes:
+  epgdata:
+
+networks:
+  permit-net:
+    external: true

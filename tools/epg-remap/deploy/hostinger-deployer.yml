@@ -1,0 +1,28 @@
+# One-shot deployer for Hostinger's Docker Manager (no SSH needed). It builds the image on the
+# VPS from the GitHub branch and (re)deploys deploy/stack.yml as the swarm stack "epg".
+# Re-run this project to ship a new version. Project env: M3U_URL, EPG_ACCESS_TOKEN,
+# EPG_GROUP_FILTER, EPG_REFRESH_HOURS, EPG_REPORT_AUTH (optional), EPG_REF (default epg-remap).
+services:
+  deployer:
+    image: docker:27-cli
+    restart: "no"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      M3U_URL: ${M3U_URL:?M3U_URL must be set}
+      EPG_ACCESS_TOKEN: ${EPG_ACCESS_TOKEN:-}
+      EPG_REPORT_AUTH: ${EPG_REPORT_AUTH:-}
+      EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-2}
+      EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
+      EPG_REF: ${EPG_REF:-epg-remap}
+    entrypoint: ["sh", "-ec"]
+    command:
+      - |
+        REPO=https://github.com/shooter51/M3uEditor.git
+        export EPG_IMAGE_TAG=$$(date +%Y%m%d%H%M%S)
+        echo "building epg-remap:$$EPG_IMAGE_TAG from $$EPG_REF"
+        docker build -q -t epg-remap:$$EPG_IMAGE_TAG -t epg-remap:latest "$$REPO#$$EPG_REF:tools/epg-remap"
+        wget -qO /tmp/stack.yml "https://raw.githubusercontent.com/shooter51/M3uEditor/$$EPG_REF/tools/epg-remap/deploy/stack.yml"
+        docker stack deploy --detach=false -c /tmp/stack.yml epg
+        docker service ls --filter name=epg_ --format '{{.Name}} {{.Replicas}} {{.Image}}'
+        echo "deployed"

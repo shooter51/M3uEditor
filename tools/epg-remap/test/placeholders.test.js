@@ -30,10 +30,21 @@ describe('placeholder slots', () => {
     for (let i = 1; i < slots.length; i++) expect(slots[i][0].getTime()).toBe(slots[i - 1][1].getTime());
   });
 
-  it('builds programmes titled with the display name', () => {
+  it('builds programmes titled with the event parsed from the name', () => {
     const ch = { id: 'PPV 03', name: 'PPV 03: Team A vs Team B', logo: '' };
     const progs = placeholderProgrammes(ch, NOW, 24, 4);
     expect(progs[0].attrs).toEqual({ start: '20260922160000 +0000', stop: '20260922200000 +0000', channel: 'PPV 03' });
+    expect(progs[0].children.map((c) => [c.name, c.children[0]])).toEqual([
+      ['title', 'Team A vs Team B'],
+      ['desc', 'PPV 03: Team A vs Team B'],
+      ['category', 'Sports event'],
+    ]);
+  });
+
+  it('can keep the raw name as the title', () => {
+    const ch = { id: 'x', name: 'PPV 03: Team A vs Team B', logo: '' };
+    const progs = placeholderProgrammes(ch, NOW, 24, 4, { parseEvents: false });
+    expect(progs[0].children.map((c) => c.name)).toEqual(['title', 'category']);
     expect(progs[0].children[0].children).toEqual(['PPV 03: Team A vs Team B']);
   });
 

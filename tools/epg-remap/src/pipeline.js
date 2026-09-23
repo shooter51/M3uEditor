@@ -186,7 +186,9 @@ async function writeOutput({ writer, match, placeholders, sources, config, now }
   }
 
   for (const p of placeholders) {
-    for (const el of placeholderProgrammes(p, now, config.placeholderHours, config.placeholderSlotHours)) {
+    for (const el of placeholderProgrammes(p, now, config.placeholderHours, config.placeholderSlotHours, {
+      parseEvents: config.parseEventNames,
+    })) {
       await writer.element(el);
       out.programmes++;
     }

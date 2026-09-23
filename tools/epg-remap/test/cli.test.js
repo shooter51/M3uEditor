@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { envOverrides, main } from '../src/cli.js';
-import { ENV, fakeFetch, fixture, M3U_URL, tempDir } from './helpers.js';
+import { ENV, fakeFetch, FIXTURE_SOURCES, fixture, M3U_URL, tempDir } from './helpers.js';
 
 let tmp;
 let configFile;
@@ -11,7 +11,7 @@ beforeEach(async () => {
   configFile = path.join(tmp.dir, 'config.json');
   await writeFile(
     configFile,
-    JSON.stringify({ overrides: fixture('overrides.json'), outDir: 'out', cacheDir: 'cache', host: '127.0.0.1' }),
+    JSON.stringify({ sources: FIXTURE_SOURCES, overrides: fixture('overrides.json'), outDir: 'out', cacheDir: 'cache', host: '127.0.0.1' }),
   );
 });
 afterEach(() => tmp.cleanup());

@@ -4,6 +4,11 @@ import path from 'node:path';
 export const DEFAULT_SOURCES = [
   'https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz',
   'https://epgshare01.online/epgshare01/epg_ripper_FANDUEL1.xml.gz',
+  // Sports: team/regional networks, DirecTV sports, DraftKings, Peacock channels.
+  'https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz',
+  'https://epgshare01.online/epgshare01/epg_ripper_DIRECTVSPORTS1.xml.gz',
+  'https://epgshare01.online/epgshare01/epg_ripper_DRAFTKINGS1.xml.gz',
+  'https://epgshare01.online/epgshare01/epg_ripper_PEACOCK1.xml.gz',
 ];
 
 // Channels whose name or group looks like a one-off event: "PPV 03: Team A vs Team B",
@@ -24,6 +29,7 @@ export const DEFAULTS = Object.freeze({
   // Event-looking rows that are really list separators ("##### PPV HD/4K #####").
   placeholderExclude: '^\\W*[#=*~_]{3,}',
   reviewFloor: 0.6, // below this, a candidate isn't worth reviewing; the channel is "unmatched"
+  parseEventNames: true, // guide shows the game parsed from the channel name, not the raw name
   placeholderHours: 24,
   placeholderSlotHours: 4,
   skipVod: true,

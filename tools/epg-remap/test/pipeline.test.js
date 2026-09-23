@@ -48,7 +48,8 @@ describe('generate (end to end on fixtures)', () => {
     // Override.
     expect(programmesFor(xml, 'FD')).toEqual(['Live Racing: Saratoga']);
     // PPV placeholder: event name visible in each 4h slot across 24h.
-    expect(programmesFor(xml, 'PPV 03')).toEqual(Array(7).fill('PPV 03: Team A vs Team B'));
+    expect(programmesFor(xml, 'PPV 03')).toEqual(Array(7).fill('Team A vs Team B'));
+    expect(programmesFor(xml, 'PPV04')).toEqual(Array(7).fill('Fighter One vs. Fighter Two, Main Card'));
     expect(xml).toContain('<programme start="20260922160000 +0000" stop="20260922200000 +0000" channel="PPV 03">');
     // EPG entry with no playlist counterpart is dropped.
     expect(xml).not.toContain('Weather Now');

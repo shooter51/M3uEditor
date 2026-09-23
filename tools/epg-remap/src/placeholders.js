@@ -1,3 +1,4 @@
+import { eventGuideTitle, parseEventName } from './events.js';
 import { formatXmltvTime } from './time.js';
 
 const HOUR = 3_600_000;
@@ -25,10 +26,18 @@ export function placeholderChannelElement(channel) {
   return { name: 'channel', attrs: { id: channel.id }, children };
 }
 
-export function placeholderProgrammes(channel, now, hours, slotHours) {
-  return placeholderSlots(now, hours, slotHours).map(([start, stop]) => ({
-    name: 'programme',
-    attrs: { start: formatXmltvTime(start), stop: formatXmltvTime(stop), channel: channel.id },
-    children: [{ name: 'title', attrs: { lang: 'en' }, children: [channel.name] }],
-  }));
+// The guide cell shows the game pulled out of the channel name ("NHL: EDM vs. WPG (Sep 22
+// 20:00)"), or "No event scheduled" for an idle slot; the raw channel name goes in <desc>.
+export function placeholderProgrammes(channel, now, hours, slotHours, { parseEvents = true } = {}) {
+  const title = parseEvents ? eventGuideTitle(parseEventName(channel.name), channel.name) : channel.name;
+  return placeholderSlots(now, hours, slotHours).map(([start, stop]) => {
+    const children = [{ name: 'title', attrs: { lang: 'en' }, children: [title] }];
+    if (title !== channel.name) children.push({ name: 'desc', attrs: { lang: 'en' }, children: [channel.name] });
+    children.push({ name: 'category', attrs: { lang: 'en' }, children: ['Sports event'] });
+    return {
+      name: 'programme',
+      attrs: { start: formatXmltvTime(start), stop: formatXmltvTime(stop), channel: channel.id },
+      children,
+    };
+  });
 }

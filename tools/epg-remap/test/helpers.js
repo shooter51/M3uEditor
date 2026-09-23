@@ -15,6 +15,12 @@ export const XTREAM_URL = 'https://provider.example/get.php?username=fixtureuser
 export const ENV = { M3U_URL };
 export const NOW = new Date('2026-09-22T19:30:00Z');
 
+// The two sources the committed fixtures stand in for.
+export const FIXTURE_SOURCES = [
+  'https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz',
+  'https://epgshare01.online/epgshare01/epg_ripper_FANDUEL1.xml.gz',
+];
+
 const ROUTES = {
   'playlist.m3u': 'playlist.m3u',
   epg_ripper_US2: 'epg_us2.xml.gz',
@@ -44,6 +50,7 @@ export async function tempDir() {
 
 export async function testConfig(dir, extra = {}) {
   return loadConfig(null, {
+    sources: FIXTURE_SOURCES,
     overrides: fixture('overrides.json'),
     outDir: path.join(dir, 'out'),
     cacheDir: path.join(dir, 'cache'),

@@ -1,7 +1,11 @@
 {
   "sources": [
     "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz",
-    "https://epgshare01.online/epgshare01/epg_ripper_FANDUEL1.xml.gz"
+    "https://epgshare01.online/epgshare01/epg_ripper_FANDUEL1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_DIRECTVSPORTS1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_DRAFTKINGS1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_PEACOCK1.xml.gz"
   ],
   "threshold": 0.85,
   "regionPreference": "west",

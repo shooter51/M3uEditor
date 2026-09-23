@@ -138,19 +138,23 @@ See `config.example.json`. Paths in it are relative to the config file.
 | `accessToken` | empty | secret path segment for the public URL |
 | `reportAuth` | empty | `user:pass` basic auth on `/report.txt` |
 
-## Deploying (KVM 8, Dokploy + Traefik)
+## Deploying (KVM 8)
 
-The VPS already runs Traefik on 80/443, so use `docker-compose.dokploy.yml`:
+The VPS's Traefik (from the `permit` swarm stack) routes swarm services on the overlay network
+`permit-net`, using the `websecure` entry point and the `letsencrypt` resolver. There's no
+SSH, so the deploy goes through Hostinger's Docker Manager:
 
-1. In Dokploy, create a **Compose** app from this repo with compose path
-   `tools/epg-remap/docker-compose.dokploy.yml`.
-2. Environment: `M3U_URL` (required), `EPG_ACCESS_TOKEN` (`openssl rand -hex 16`), and
-   optionally `EPG_REPORT_AUTH=user:pass`.
-3. Domain: `epg.tomshappyplace.com` → service `epg-remap`, port `8080`, HTTPS.
-4. Cloudflare DNS: add an `A` record `epg` → `62.72.3.35`.
+1. Create the Docker Manager project `epg-remap` from `deploy/hostinger-deployer.yml`, with
+   these env values: `M3U_URL`, `EPG_ACCESS_TOKEN`, `EPG_GROUP_FILTER=^US[|]`,
+   `EPG_REFRESH_HOURS=2`.
+2. It runs once: it builds `epg-remap:<timestamp>` on the VPS from the `epg-remap` branch,
+   then runs `docker stack deploy` for `deploy/stack.yml` as stack `epg`.
+3. To ship a new version, push the branch and re-run the project.
+4. Cloudflare DNS: `A` record `epg` → `62.72.3.35` (DNS only until the certificate is
+   issued).
 5. TiviMate EPG source: `https://epg.tomshappyplace.com/<EPG_ACCESS_TOKEN>/epg.xml.gz`.
 
-Without Dokploy, `docker compose up -d --build` with the plain `docker-compose.yml` runs
+On a Dokploy host, use `docker-compose.dokploy.yml` instead. Without either, `docker compose up -d --build` with the plain `docker-compose.yml` runs
 it on `127.0.0.1:8080` behind whatever proxy you have. It reads `M3U_URL` from `./.env`.
 
 Env equivalents: `EPG_ACCESS_TOKEN`, `EPG_REPORT_AUTH`, `EPG_REFRESH_HOURS`, `EPG_THRESHOLD`,
