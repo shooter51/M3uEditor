@@ -27,6 +27,8 @@ https://provider.example/live/fixtureuser/fixturepass/9003.ts
 https://provider.example/live/fixtureuser/fixturepass/9004.ts
 #EXTINF:-1 tvg-id="" tvg-name="" group-title="PPV Events",##### PPV HD/4K #####
 https://provider.example/live/fixtureuser/fixturepass/9000.ts
+#EXTINF:-1 tvg-id="" tvg-name="" group-title="US| Misc",## 24/7 CRIME ##
+https://provider.example/live/fixtureuser/fixturepass/9001.ts
 #EXTINF:-1 tvg-id="" tvg-name="" group-title="US| Misc",Mystery Channel
 https://provider.example/live/fixtureuser/fixturepass/9100.ts
 #EXTINF:-1 tvg-id="" tvg-name="Some Movie (2024)" group-title="Movies",Some Movie (2024)

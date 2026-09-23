@@ -9,6 +9,13 @@ export const DEFAULT_SOURCES = [
   'https://epgshare01.online/epgshare01/epg_ripper_DIRECTVSPORTS1.xml.gz',
   'https://epgshare01.online/epgshare01/epg_ripper_DRAFTKINGS1.xml.gz',
   'https://epgshare01.online/epgshare01/epg_ripper_PEACOCK1.xml.gz',
+  // Local affiliates, keyed by call sign (large: ~55 MB compressed, cached and revalidated).
+  'https://epgshare01.online/epgshare01/epg_ripper_US_LOCALS1.xml.gz',
+  // Free streaming (FAST) channels.
+  'https://i.mjh.nz/Roku/all.xml.gz',
+  'https://i.mjh.nz/Plex/us.xml.gz',
+  'https://i.mjh.nz/PlutoTV/us.xml.gz',
+  'https://i.mjh.nz/SamsungTVPlus/us.xml.gz',
 ];
 
 // Channels whose name or group looks like a one-off event: "PPV 03: Team A vs Team B",
@@ -26,8 +33,9 @@ export const DEFAULTS = Object.freeze({
   outputFile: 'epg.xml.gz',
   reportFile: 'report.txt',
   eventPattern: DEFAULT_EVENT_PATTERN,
-  // Event-looking rows that are really list separators ("##### PPV HD/4K #####").
-  placeholderExclude: '^\\W*[#=*~_]{3,}',
+  // Playlist rows that are list separators ("##### PPV HD/4K #####", "## 24/7 CRIME ##");
+  // they are skipped entirely: never matched, never given placeholders.
+  placeholderExclude: '^\\W*[#=*~_]{2,}|[#=*~_]{2,}\\W*$',
   reviewFloor: 0.6, // below this, a candidate isn't worth reviewing; the channel is "unmatched"
   parseEventNames: true, // guide shows the game parsed from the channel name, not the raw name
   placeholderHours: 24,

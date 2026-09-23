@@ -26,7 +26,9 @@ export async function generate({ config, env = process.env, fetchImpl = fetch, n
 
 async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
   const { entries, stats: playlistStats } = await loadPlaylist({ config, m3uUrl, fetchImpl, log });
-  const playlistChannels = toPlaylistChannels(entries);
+  // Section separators ("#### MIAMI ####") are list decoration, not channels.
+  const separatorRe = config.placeholderExclude ? new RegExp(config.placeholderExclude, 'i') : null;
+  const playlistChannels = toPlaylistChannels(separatorRe ? entries.filter((e) => !separatorRe.test(e.name)) : entries);
   log(`playlist: ${playlistChannels.length} live channel ids`);
 
   // Pass 1: download (or revalidate) each source and collect its channels.
@@ -67,8 +69,7 @@ async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
 
   const eventRe = new RegExp(config.eventPattern, 'i');
   const withoutGuide = [...match.unmatched, ...match.review.map((r) => r.playlist)];
-  const excludeRe = config.placeholderExclude ? new RegExp(config.placeholderExclude, 'i') : null;
-  const placeholders = withoutGuide.filter((p) => isEventChannel(p, eventRe) && !excludeRe?.test(p.name));
+  const placeholders = withoutGuide.filter((p) => isEventChannel(p, eventRe));
   const placeholderIds = new Set(placeholders.map((p) => p.id));
   const reportInput = {
     generatedAt: now,

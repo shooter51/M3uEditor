@@ -12,6 +12,8 @@ services:
       EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-2}
       EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
       PORT: "8080"
+      # Keep the heap well inside the 512M limit; the locals feed makes generation heavier.
+      NODE_OPTIONS: --max-old-space-size=384
     volumes:
       - epgdata:/data
     networks:

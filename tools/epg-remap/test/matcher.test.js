@@ -130,6 +130,48 @@ describe('matchChannels', () => {
     expect(r.unmatched.map((p) => p.id)).toEqual(['M']);
   });
 
+  it('matches local affiliates by call sign, preferring the main feed', () => {
+    const locals = [epg('WBTS-LD.us_locals1', ['WBTS-LD']), epg('WBTS-CD.us_locals1', ['WBTS-CD']), epg('NBC.Sports.Boston.HD.us2', ['NBC Sports Boston HD'])];
+    const r = matchChannels([pl('B', 'US: NBC 10 (WBTS) BOSTON (S) ᴿᴬᵂ')], locals);
+    expect(r.matched[0]).toMatchObject({ method: 'callsign', score: 1 });
+    expect(r.matched[0].epg.id).toBe('WBTS-CD.us_locals1');
+    // tvg-name can carry the call sign too; unknown call signs fall through to name matching
+    expect(matchChannels([pl('X', 'Boston 10', { tvgName: 'NBC (WBTS)' })], locals).matched[0].method).toBe('callsign');
+    const unknown = matchChannels([pl('Y', 'NBC Sports Boston (WZZZ)')], locals);
+    expect(unknown.matched).toEqual([]);
+    expect(unknown.review[0].epg.id).toBe('NBC.Sports.Boston.HD.us2');
+  });
+
+  it('overrides still beat call signs', () => {
+    const locals = [epg('WBTS-CD.us_locals1', ['WBTS-CD']), epg('Other.us', ['Other'])];
+    const r = matchChannels([pl('B', 'NBC (WBTS)')], locals, new Map([['B', 'Other.us']]));
+    expect(r.matched[0].method).toBe('override');
+  });
+
+  it('reads EPG-style provider tvg-ids as names', () => {
+    const r = matchChannels([pl('investigationdiscovery.us', 'ID')], [epg('Investigation.Discovery.HD.us2', ['Investigation Discovery HD'])]);
+    expect(r.matched[0]).toMatchObject({ method: 'exact' });
+  });
+
+  it('matches league-prefixed team channels', () => {
+    const r = matchChannels([pl('M', 'NBA: MEMPHIS GRIZZLIES ᴴᴰ')], [epg('NBA-MemphisGrizzlies.us', ['NBA - Memphis Grizzlies'])]);
+    expect(r.matched[0].method).toBe('exact');
+  });
+
+  it('does not auto-accept a one-word spelling match', () => {
+    const r = matchChannels([pl('W', 'US: THE WILDS')], [epg('x', ['The Wild Wild West'])]);
+    expect(r.matched).toEqual([]);
+  });
+
+  it('ignores very common words when collecting candidates', () => {
+    const many = Array.from({ length: 200 }, (_, i) => epg(`n${i}`, [`News ${i} Zone`]));
+    const r = matchChannels([pl('Q', 'Quirky News')], [...many, epg('quirky', ['Quirky Newz'])]);
+    expect(r.review.concat(r.matched).map((m) => m.epg.id)).toContain('quirky');
+    // all-common query still finds something via its rarest word
+    const r2 = matchChannels([pl('Z', 'News Zone')], many);
+    expect(r2.matched.length + r2.review.length).toBe(1);
+  });
+
   it('skips EPG display names that normalize to nothing', () => {
     const r = matchChannels([pl('F', 'Fox')], [epg('x', ['***', 'Fox'])]);
     expect(r.matched).toHaveLength(1);

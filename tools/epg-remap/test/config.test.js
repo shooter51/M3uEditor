@@ -14,7 +14,7 @@ describe('loadConfig', () => {
   it('uses defaults when the file is missing', async () => {
     const cfg = await loadConfig(path.join(tmp.dir, 'nope.json'));
     expect(cfg.sources).toEqual(DEFAULTS.sources);
-    expect(cfg.sources).toHaveLength(6);
+    expect(cfg.sources).toHaveLength(11);
     expect(cfg.threshold).toBe(0.85);
     expect(cfg.refreshHours).toBe(6);
     expect(cfg.outDir).toBe(path.join(tmp.dir, 'out'));

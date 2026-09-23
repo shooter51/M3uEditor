@@ -25,7 +25,13 @@ export function ratio(a, b) {
 // are lined up first, then the leftovers are compared. Unlike fuzzywuzzy's token_set_ratio it
 // does NOT score a strict subset as 1.0, so "ESPN" vs "ESPN News" stays well below threshold.
 // The joined forms are also compared so "ESPN2" and "ESPN 2" still meet.
-export function tokenSetSimilarity(tokensA, tokensB) {
+// Cheap ceiling on ratio(): strings whose lengths differ this much can't score higher.
+export function ratioUpperBound(lenA, lenB) {
+  const max = Math.max(lenA, lenB);
+  return max === 0 ? 1 : Math.min(lenA, lenB) / max;
+}
+
+export function tokenSetSimilarity(tokensA, tokensB, minScore = 0) {
   const a = new Set(tokensA);
   const b = new Set(tokensB);
   if (a.size === 0 || b.size === 0) return a.size === b.size ? 1 : 0;
@@ -34,7 +40,17 @@ export function tokenSetSimilarity(tokensA, tokensB) {
   const onlyB = [...b].filter((t) => !a.has(t)).sort();
   const sideA = [...inter, ...onlyA].join(' ');
   const sideB = [...inter, ...onlyB].join(' ');
-  const joined = ratio([...a].sort().join(''), [...b].sort().join(''));
+  const sortedA = [...a].sort().join('');
+  const sortedB = [...b].sort().join('');
+  // Every ratio below is bounded by the length ratio of its inputs; bail out before any
+  // Levenshtein work when none of them could reach minScore.
+  if (
+    minScore > 0 &&
+    Math.max(ratioUpperBound(sideA.length, sideB.length), ratioUpperBound(sortedA.length, sortedB.length)) < minScore
+  ) {
+    return 0;
+  }
+  const joined = ratio(sortedA, sortedB);
   const inOrder = ratio(tokensA.join(''), tokensB.join(''));
   return Math.max(ratio(sideA, sideB), joined, inOrder);
 }

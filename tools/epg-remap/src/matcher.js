@@ -1,7 +1,10 @@
-import { nameFromEpgId, nameVariants } from './normalize.js';
+import { callSignFromEpgId, callSignFromName, isFillerToken, nameFromEpgId, nameVariants } from './normalize.js';
 import { shortTokensAgree, tokenSetSimilarity } from './similarity.js';
 
 const EPS = 1e-9;
+// Words shared by more EPG names than this ("tv", "news", "movies") are too common to pull in
+// candidates on their own; a candidate must also share a rarer word.
+const COMMON_TOKEN_LIMIT = 150;
 
 // epgChannels: [{ key, id, source, order, displayNames: [] }]
 // Each EPG channel is indexed under all of its display names plus the name embedded in its id.
@@ -10,8 +13,13 @@ export function buildEpgIndex(epgChannels) {
   const byKey = new Map();
   const byToken = new Map();
   const byId = new Map();
+  const byCallSign = new Map(); // sign -> { idx, rank } of the best feed for that station
   epgChannels.forEach((ch, idx) => {
     if (!byId.has(ch.id)) byId.set(ch.id, idx);
+    const cs = callSignFromEpgId(ch.id);
+    if (cs && (!byCallSign.has(cs.sign) || cs.rank < byCallSign.get(cs.sign).rank)) {
+      byCallSign.set(cs.sign, { idx, rank: cs.rank });
+    }
     const names = [...ch.displayNames];
     const fromId = nameFromEpgId(ch.id);
     if (fromId) names.push(fromId);
@@ -28,7 +36,7 @@ export function buildEpgIndex(epgChannels) {
       for (const t of new Set(norm.tokens)) push(byToken, t, formIdx);
     }
   });
-  return { channels: epgChannels, forms, byKey, byToken, byId };
+  return { channels: epgChannels, forms, byKey, byToken, byId, byCallSign };
 }
 
 // Returns { matched, review, unmatched, brokenOverrides, unusedEpg }.
@@ -51,7 +59,16 @@ export function matchChannels(playlistChannels, epgChannels, overrides = new Map
       brokenOverrides.push({ playlistId: p.id, epgId: overrideId });
     }
 
-    const best = bestCandidate(p, index, regionPreference, threshold);
+    // Local affiliates: a call sign in the name ("NBC 10 (WBTS) BOSTON") identifies the station
+    // exactly, which beats any name similarity.
+    const sign = callSignFromName(p.name) ?? callSignFromName(p.tvgName);
+    const station = sign ? index.byCallSign.get(sign) : undefined;
+    if (station) {
+      matched.push({ playlist: p, epg: epgChannels[station.idx], score: 1, method: 'callsign', tie: false });
+      continue;
+    }
+
+    const best = bestCandidate(p, index, regionPreference, threshold, reviewFloor);
     // Hopeless candidates are noise in the review list; treat them as no match.
     if (!best || best.score + EPS < reviewFloor) {
       unmatched.push(p);
@@ -76,7 +93,9 @@ export function matchChannels(playlistChannels, epgChannels, overrides = new Map
 function queriesFor(p) {
   const out = [];
   const seen = new Set();
-  for (const n of [p.name, p.tvgName, p.tvgId, ...p.aliases]) {
+  // Provider tvg-ids are often EPG-style ("investigationdiscovery.us"); read them like EPG ids.
+  const idName = p.tvgId ? nameFromEpgId(p.tvgId) : null;
+  for (const n of [p.name, p.tvgName, p.tvgId, idName, ...p.aliases]) {
     if (!n) continue;
     for (const norm of nameVariants(n)) {
       const sig = norm.tokens.join(' ');
@@ -88,7 +107,7 @@ function queriesFor(p) {
   return out;
 }
 
-function bestCandidate(p, index, regionPreference, threshold) {
+function bestCandidate(p, index, regionPreference, threshold, minScore = 0) {
   const queries = queriesFor(p);
   if (!queries.length) return null;
   const wantRegion = queries.find((q) => q.region)?.region ?? null;
@@ -97,13 +116,18 @@ function bestCandidate(p, index, regionPreference, threshold) {
   const perChannel = new Map();
   for (const q of queries) {
     const candidateForms = new Set(index.byKey.get(q.key) ?? []);
-    for (const t of q.tokens) for (const f of index.byToken.get(t) ?? []) candidateForms.add(f);
+    const lists = q.tokens.map((t) => index.byToken.get(t) ?? []).filter((l) => l.length);
+    const rare = lists.filter((l) => l.length <= COMMON_TOKEN_LIMIT);
+    // If every word is common, fall back to the rarest one alone.
+    const use = rare.length ? rare : lists.sort((x, y) => x.length - y.length).slice(0, 1);
+    for (const list of use) for (const f of list) candidateForms.add(f);
     for (const formIdx of candidateForms) {
       const form = index.forms[formIdx];
       const exact = form.key === q.key;
-      let score = exact ? 1 : tokenSetSimilarity(q.tokens, form.tokens);
-      // Never auto-accept on a short-token mismatch; leave it for review.
-      if (!exact && score + EPS >= threshold && !shortTokensAgree(q.tokens, form.tokens)) {
+      let score = exact ? 1 : tokenSetSimilarity(q.tokens, form.tokens, minScore);
+      // Never auto-accept on a short-token mismatch, or a one-word name matched only by
+      // spelling ("Wilds" ~ "Wild Wild West"); leave those for review.
+      if (!exact && score + EPS >= threshold && (q.tokens.filter((t) => !isFillerToken(t)).length < 2 || !shortTokensAgree(q.tokens, form.tokens))) {
         score = Math.max(0, threshold - 0.01);
       }
       const prev = perChannel.get(form.channelIdx);

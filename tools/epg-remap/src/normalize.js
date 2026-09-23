@@ -8,6 +8,10 @@
 const COUNTRY_PREFIX = /^\s*(?:us|usa|u\.s\.a?\.?)\s*(?:\||:|-)\s*/i;
 // Provider/platform tags before a colon or pipe: "AT&T: ", "TV: ", "RK: ", "PRIME: ", "PPV 03: ".
 const SHORT_PREFIX = /^\s*[\p{L}\p{N}&+ ]{1,8}\s*[:|]\s*(?=\S)/u;
+// League tags on team channels: "NBA - Boston Celtics", "MLB - Chicago Cubs".
+const LEAGUE_PREFIX = /^\s*(?:nba|wnba|nfl|nhl|mlb|mls|milb|ncaa[a-z]*)\s+-\s+(?=\S)/i;
+// Bracketed source tags: "[PK16] Real Housewives".
+const BRACKET_TAG = /^\s*\[[^\]]{1,16}\]\s*/;
 // Feed codes like "(A)", "(D)", "(PC)"; longer parentheticals ("(NECN)") are kept.
 const FEED_CODE = /\(\s*[\p{L}\p{N}]{1,3}\s*\)/gu;
 // Quality / feed tags. Superscript decorations like "ᴿᴬᵂ ⁶⁰ᶠᵖˢ" or "⁽ᴮᴷ⁾" casefold to these too.
@@ -27,6 +31,7 @@ const REGIONS = {
 // Words that carry no identity: "The Weather Channel" ~ "Weather", "Fox News Channel" ~ "Fox News".
 const LEADING_FILLER = new Set(['the']);
 const TRAILING_FILLER = new Set(['channel']);
+export const isFillerToken = (t) => LEADING_FILLER.has(t) || TRAILING_FILLER.has(t);
 const PAREN_REGION = /\(\s*(east|eastern|west|western|pacific|mountain|central)\s*\)/gi;
 
 export function casefold(s) {
@@ -40,7 +45,7 @@ export function normalizeName(name, { stripFiller = true } = {}) {
     prev = s;
     s = s.replace(COUNTRY_PREFIX, '');
   }
-  s = s.replace(SHORT_PREFIX, '');
+  s = s.replace(BRACKET_TAG, '').replace(SHORT_PREFIX, '').replace(LEAGUE_PREFIX, '');
   let region = null;
   s = s.replace(PAREN_REGION, (_, r) => {
     region = REGIONS[r.toLowerCase()];
@@ -81,4 +86,26 @@ export function nameVariants(name) {
   const a = normalizeName(name);
   const b = normalizeName(name, { stripFiller: false });
   return a.key === b.key ? [a] : [a, b];
+}
+
+// US broadcast call sign in a channel name: "NBC 10 (WBTS) BOSTON" -> "WBTS". Only the
+// parenthesized form is trusted; bare four-letter words are too often ordinary words.
+const CALL_SIGN_IN_NAME = /\(\s*([KW][A-Z]{2,3})(?:[-\s]?(?:DT|TV|LD|CD|HD)\d*)?\s*\)/;
+// Parenthesized words that look like call signs but are feed labels: "OXYGEN (WEST)".
+const NOT_CALL_SIGNS = new Set(['WEST', 'KIDS', 'WILD', 'WIFE', 'WORK', 'WOW', 'KIX']);
+export function callSignFromName(name) {
+  const m = CALL_SIGN_IN_NAME.exec(String(name ?? '').toUpperCase());
+  return m && !NOT_CALL_SIGNS.has(m[1]) ? m[1] : null;
+}
+
+// Call sign and feed rank from a locals EPG id: "WNBC-DT.us_locals1" -> { sign: WNBC, rank }.
+// The main feed (-DT / -TV) outranks low-power (-CD/-LD) and subchannels (-DT2...).
+// Requires the broadcast suffix ("-DT", "-LD"...), so ids like "West.TV.us2" are not stations.
+const CALL_SIGN_ID = /^([KW][A-Z]{2,3})-(DT|TV|LD|CD)(\d*)_?(?:\.|$)/;
+export function callSignFromEpgId(id) {
+  const m = CALL_SIGN_ID.exec(String(id ?? '').toUpperCase());
+  if (!m) return null;
+  const [, sign, kind, sub] = m;
+  const base = { DT: 0, TV: 0, CD: 2, LD: 3 }[kind];
+  return { sign, rank: base * 10 + (sub ? Number(sub) : 0) };
 }

@@ -61,7 +61,7 @@ describe('cli', () => {
   it('writes output and prints a summary', async () => {
     const t = io();
     expect(await main(['-c', configFile, '--out', path.join(tmp.dir, 'guide')], t.deps)).toBe(0);
-    expect(t.out.join('')).toMatch(/wrote .*guide\/epg\.xml\.gz[\s\S]*8 matched, 1 need review, 3 unmatched, 2 placeholders/);
+    expect(t.out.join('')).toMatch(/wrote .*guide\/epg\.xml\.gz[\s\S]*8 matched, 1 need review, 2 unmatched, 2 placeholders/);
     expect(t.err.join('')).not.toContain('fixturepass');
   });
 

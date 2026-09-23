@@ -83,7 +83,15 @@ similarity.
   hours, titled with the display name. A channel counts as an event channel when its name
   or group matches `eventPattern` (default: PPV, EVENT, "vs", "@", "NN: ..."). Other
   unmatched channels stay empty and are listed in the report.
-- VOD entries (`/movie/`, `/series/` URLs) are skipped.
+- **Local affiliates** are matched by call sign. `NBC 10 (WBTS) BOSTON` goes to the
+  US_LOCALS1 station `WBTS-*`, preferring the main feed (-DT) over low-power (-CD/-LD)
+  and subchannels (-DT2…). This runs after overrides and before any name matching.
+- Provider tvg-ids that look like EPG ids (`investigationdiscovery.us`) are also read as
+  names.
+- Team channels with league tags (`NBA - Boston Celtics`) match `NBA: BOSTON CELTICS`.
+- A one-word name is never auto-accepted on spelling similarity alone.
+- VOD entries (`/movie/`, `/series/` URLs) are skipped, and so are list separators
+  (`#### MIAMI ####`).
 - Provider decorations are ignored: platform tags (`AT&T:`, `TV:`, `RK:`), feed codes
   (`(A)`, `(D)`), and superscript tags like `ᴿᴬᵂ ⁶⁰ᶠᵖˢ` or `⁽ᴮᴷ⁾`.
 - Guards on fuzzy matches. A candidate is never auto-accepted when:
@@ -108,13 +116,19 @@ similarity.
   before programmes, unique ids, no dangling references, UTC timestamps, titles present.
   Only then is it renamed into place. A failed validation keeps the previous file.
 
-## Memory
+## Memory and speed
 
 The feeds run from 6 to 58 MB uncompressed. They are cached on disk in their compressed
 form (with ETag / If-Modified-Since revalidation) and stream-parsed twice: once for
 channels, once for programmes. Only the channel list stays in memory. Against the real
 US2 and FANDUEL1 feeds (811 channels, about 84k programmes) a run takes about 3.5s with
 peak RSS around 145 MB. The playlist is streamed and never cached.
+
+With every default feed, including US_LOCALS1 (about 560 MB uncompressed, 4,456 stations),
+a full run on a 12k-channel account takes about 80s, most of it waiting on the provider's
+API, and peaks around 380 MB with `--max-old-space-size=384`. Fuzzy scoring skips very common
+words ("tv", "news") when collecting candidates, and skips pairs whose lengths already rule
+out a reviewable score.
 
 ## Configuration
 

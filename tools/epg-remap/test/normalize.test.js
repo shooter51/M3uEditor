@@ -108,6 +108,9 @@ describe('provider decorations', () => {
     ['World Fishing Network HD (US)', 'worldfishingnetwork'],
     ['PPV 03: Team A vs Team B', 'teamavsteamb'],
     ['Very Long Prefix: Name', 'verylongprefixname'],
+    ['NBA - Boston Celtics', 'bostonceltics'],
+    ['[PK16] Real Housewives', 'realhousewives'],
+    ['Spectrum News 1 - Austin', 'spectrumnews1austin'],
   ])('%s -> %s', (name, key) => {
     expect(normalizeName(name).key).toBe(key);
   });
@@ -125,5 +128,33 @@ describe('shortTokensAgree', () => {
     expect(shortTokensAgree(['espn2'], ['espn', '2'])).toBe(true);
     expect(shortTokensAgree(['bally', 'sports', 'arizona'], ['arizona', 'family', 'sports'])).toBe(false);
     expect(shortTokensAgree(['cbs', 'sports', 'galazo', 'network'], ['cbs', 'sports', 'golazo', 'network'])).toBe(true);
+  });
+});
+
+describe('call signs', async () => {
+  const { callSignFromName, callSignFromEpgId } = await import('../src/normalize.js');
+  it.each([
+    ['US: NBC 10 (WBTS) BOSTON (S) ᴿᴬᵂ', 'WBTS'],
+    ['US: CBS (WCBS-DT) NEW YORK', 'WCBS'],
+    ['US: NBC 30 (WGBC-DT2) MERIDIAN (H)', 'WGBC'],
+    ['US: FOX (KTTV) LOS ANGELES', 'KTTV'],
+    ['US: NBC OXYGEN (WEST) ᴿᴬᵂ', null],
+    ['US: NBC (D)', null],
+    ['WABC NEW YORK', null],
+    [undefined, null],
+  ])('name %s -> %s', (name, sign) => {
+    expect(callSignFromName(name)).toBe(sign);
+  });
+  it.each([
+    ['WNBC-DT.us_locals1', { sign: 'WNBC', rank: 0 }],
+    ['WCBS-DT_.us_locals1', { sign: 'WCBS', rank: 0 }],
+    ['WSVN-DT2.us_locals1', { sign: 'WSVN', rank: 2 }],
+    ['WBTS-CD.us_locals1', { sign: 'WBTS', rank: 20 }],
+    ['KXBF-LD.us_locals1', { sign: 'KXBF', rank: 30 }],
+    ['West.TV.us2', null],
+    ['K39FE-D.us_locals1', null],
+    [undefined, null],
+  ])('epg id %s', (id, expected) => {
+    expect(callSignFromEpgId(id)).toEqual(expected);
   });
 });
