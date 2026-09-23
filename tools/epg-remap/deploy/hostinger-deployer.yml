@@ -1,7 +1,8 @@
 # One-shot deployer for Hostinger's Docker Manager (no SSH needed). It builds the image on the
 # VPS from the GitHub branch and (re)deploys deploy/stack.yml as the swarm stack "epg".
 # Re-run this project to ship a new version. Project env: M3U_URL, EPG_ACCESS_TOKEN,
-# EPG_GROUP_FILTER, EPG_REFRESH_HOURS, EPG_REPORT_AUTH (optional), EPG_REF (default epg-remap).
+# EPG_GROUP_FILTER, EPG_REFRESH_HOURS, EPG_REPORT_AUTH (optional), EPG_REF (default epg-remap),
+# EPG_HOST (public hostname Traefik routes to the service).
 services:
   deployer:
     image: docker:27-cli
@@ -15,6 +16,7 @@ services:
       EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-2}
       EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
       EPG_REF: ${EPG_REF:-epg-remap}
+      EPG_HOST: ${EPG_HOST:-epg.outtherehq.com}
     entrypoint: ["sh", "-ec"]
     command:
       - |

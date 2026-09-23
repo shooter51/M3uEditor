@@ -150,9 +150,9 @@ SSH, so the deploy goes through Hostinger's Docker Manager:
 2. It runs once: it builds `epg-remap:<timestamp>` on the VPS from the `epg-remap` branch,
    then runs `docker stack deploy` for `deploy/stack.yml` as stack `epg`.
 3. To ship a new version, push the branch and re-run the project.
-4. Cloudflare DNS: `A` record `epg` → `62.72.3.35` (DNS only until the certificate is
+4. Cloudflare DNS (outtherehq.com zone): `A` record `epg` → `62.72.3.35` (DNS only until the certificate is
    issued).
-5. TiviMate EPG source: `https://epg.tomshappyplace.com/<EPG_ACCESS_TOKEN>/epg.xml.gz`.
+5. TiviMate EPG source: `https://epg.outtherehq.com/<EPG_ACCESS_TOKEN>/epg.xml.gz`.
 
 On a Dokploy host, use `docker-compose.dokploy.yml` instead. Without either, `docker compose up -d --build` with the plain `docker-compose.yml` runs
 it on `127.0.0.1:8080` behind whatever proxy you have. It reads `M3U_URL` from `./.env`.
