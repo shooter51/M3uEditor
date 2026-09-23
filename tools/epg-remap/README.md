@@ -50,7 +50,7 @@ In serve mode:
 | `/healthz` | JSON status: last success, last error |
 
 If `accessToken` is set, the guide and report paths move under it
-(`/<token>/epg.xml.gz`) and the bare paths return 404. A failed refresh keeps serving the
+(`/<token>/epg.xml.gz`, or just `/<token>` for the guide) and the bare paths return 404. A failed refresh keeps serving the
 last good file.
 
 ## Matching
@@ -152,7 +152,7 @@ SSH, so the deploy goes through Hostinger's Docker Manager:
 3. To ship a new version, push the branch and re-run the project.
 4. Cloudflare DNS (outherehq.com zone): `A` record `epg` → `62.72.3.35` (DNS only until the certificate is
    issued).
-5. TiviMate EPG source: `https://epg.outherehq.com/<EPG_ACCESS_TOKEN>/epg.xml.gz`.
+5. TiviMate EPG source: `https://epg.outherehq.com/<EPG_ACCESS_TOKEN>`.
 
 On a Dokploy host, use `docker-compose.dokploy.yml` instead. Without either, `docker compose up -d --build` with the plain `docker-compose.yml` runs
 it on `127.0.0.1:8080` behind whatever proxy you have. It reads `M3U_URL` from `./.env`.

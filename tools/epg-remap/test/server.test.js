@@ -79,6 +79,9 @@ describe('server', () => {
     await writeOutputs(config);
     expect((await fetch(`${base}/epg.xml.gz`)).status).toBe(404);
     expect((await fetch(`${base}/secretToken123/epg.xml.gz`)).status).toBe(200);
+    const short = await fetch(`${base}/secretToken123`);
+    expect(short.status).toBe(200);
+    expect(short.headers.get('content-type')).toBe('application/gzip');
     expect((await fetch(`${base}/secretToken123/report.txt`)).status).toBe(401);
     const auth = { authorization: `Basic ${Buffer.from('tom:pw').toString('base64')}` };
     expect((await fetch(`${base}/secretToken123/report.txt`, { headers: auth })).status).toBe(200);

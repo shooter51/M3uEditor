@@ -58,7 +58,8 @@ export function createEpgServer({ config, generate, log = () => {}, setIntervalI
       res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
       return res.end(req.method === 'HEAD' ? undefined : body);
     }
-    if (pathname === `${prefix}/epg.xml.gz`) {
+    // With a token, the bare token path is the guide too: short enough to type on a TV remote.
+    if (pathname === `${prefix}/epg.xml.gz` || (prefix && pathname === prefix)) {
       return sendFile(req, res, outFile, 'application/gzip', false);
     }
     if (pathname === `${prefix}/epg.xml`) {
