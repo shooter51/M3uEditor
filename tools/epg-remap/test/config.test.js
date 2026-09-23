@@ -63,6 +63,7 @@ describe('validateConfig', () => {
     [{ reviewFloor: 0.9 }, 'reviewFloor'],
     [{ accessToken: 'short' }, 'accessToken'],
     [{ reportAuth: 'nocolon' }, 'reportAuth'],
+    [{ eventTime: { sourceZone: 'Mars/Olympus', displayZone: 'UTC', zonesByTag: {} } }, 'unknown time zone'],
   ])('rejects %j', (patch, message) => {
     expect(() => validateConfig({ ...base(), ...patch })).toThrow(message);
   });

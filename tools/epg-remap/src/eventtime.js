@@ -1,0 +1,129 @@
+// Listed start times in event-channel names, converted to the viewer's time zone.
+//
+// Providers write times in several formats and zones. A name's own label wins ("EDT", "GMT",
+// "ET"); UFC-style "start:" fields are UTC; otherwise the zone comes from the provider tag in
+// the name ("(WNBA 01)" -> UTC) or the default (Eastern). Measured on a real account: ESPN+,
+// BTN+, MiLB, Peacock and FloSports list games 8 AM-11 PM (Eastern); WNBA and STAN cluster
+// around 23:00-02:00 (UTC).
+
+export const DEFAULT_TIME_OPTIONS = Object.freeze({
+  sourceZone: 'America/New_York',
+  zonesByTag: { WNBA: 'UTC', STAN: 'UTC' },
+  displayZone: 'America/Los_Angeles',
+  displayLabel: 'PT',
+});
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_RE = MONTHS.join('|');
+const DAY_RE = 'Mon|Tue|Wed|Thu|Fri|Sat|Sun';
+
+const ZONE_ABBREVIATIONS = {
+  ET: 'America/New_York', EDT: 'America/New_York', EST: 'America/New_York',
+  CT: 'America/Chicago', CDT: 'America/Chicago', CST: 'America/Chicago',
+  MT: 'America/Denver', MDT: 'America/Denver', MST: 'America/Denver',
+  PT: 'America/Los_Angeles', PDT: 'America/Los_Angeles', PST: 'America/Los_Angeles',
+  GMT: 'UTC', UTC: 'UTC', Z: 'UTC', BST: 'Europe/London',
+};
+
+const monthIndex = (name) => MONTHS.findIndex((m) => m.toLowerCase() === name.slice(0, 3).toLowerCase());
+const to24h = (h, ampm) => {
+  if (!ampm) return h;
+  const pm = /p/i.test(ampm);
+  return (h % 12) + (pm ? 12 : 0);
+};
+
+// Each pattern yields { month (0-11), day, hour, minute, year?, zone? } or { empty: true }.
+// `zone` is set only when the name itself says which zone; otherwise the caller decides.
+export const TIME_PATTERNS = [
+  {
+    // start:2026-09-23 00:55:00 stop:2026-09-23 05:00:00  (UTC)
+    re: /\s*start:\s*(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::\d{2})?(?:\s*stop:\s*[\d-]+ [\d:]+)?/i,
+    parts: (m) => ({ year: +m[1], month: +m[2] - 1, day: +m[3], hour: +m[4], minute: +m[5], zone: 'UTC' }),
+  },
+  {
+    // (2026-09-22 20:00:10); year 2098 marks an idle slot
+    re: /\(?\s*(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2})?\s*\)?/,
+    parts: (m) => (+m[1] >= 2090 ? { empty: true } : { year: +m[1], month: +m[2] - 1, day: +m[3], hour: +m[4], minute: +m[5] }),
+  },
+  {
+    // Tue 22 Sep 10:00 EDT (US)
+    re: new RegExp(`\\b(?:${DAY_RE})\\s+(\\d{1,2})\\s+(${MONTH_RE})\\s+(\\d{1,2}):(\\d{2})(?:\\s+([A-Z]{2,4}))?(?:\\s*\\(US\\))?`),
+    parts: (m) => ({ month: monthIndex(m[2]), day: +m[1], hour: +m[3], minute: +m[4], zone: ZONE_ABBREVIATIONS[m[5]] }),
+  },
+  {
+    // 22-09-2026 | 00:00 (GMT)
+    re: /\b(\d{2})-(\d{2})-(\d{4})\b(?:\s*\|\s*|\s+)(\d{1,2}):(\d{2})(?:\s*\(([A-Z]{2,4})\))?/,
+    parts: (m) => ({ year: +m[3], month: +m[2] - 1, day: +m[1], hour: +m[4], minute: +m[5], zone: ZONE_ABBREVIATIONS[m[6]] }),
+  },
+  {
+    // (9.22 9:15 PM ET)
+    re: /\s*\((\d{1,2})\.(\d{1,2})\s+(\d{1,2}):(\d{2})\s*([AP]M)\s*([A-Z]{2,4})?\)/i,
+    parts: (m) => ({ month: +m[1] - 1, day: +m[2], hour: to24h(+m[3], m[5]), minute: +m[4], zone: ZONE_ABBREVIATIONS[m[6]?.toUpperCase()] }),
+  },
+  {
+    // @ Sep 20 6:30 PM
+    re: new RegExp(`\\s*@\\s*(${MONTH_RE})\\s+(\\d{1,2})\\s+(\\d{1,2}):(\\d{2})\\s*([AP]M)`, 'i'),
+    parts: (m) => ({ month: monthIndex(m[1]), day: +m[2], hour: to24h(+m[3], m[5]), minute: +m[4] }),
+  },
+  {
+    // - 22/10 11:30   (day/month)
+    re: /\s+-\s+(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})\s*$/,
+    parts: (m) => ({ month: +m[2] - 1, day: +m[1], hour: +m[3], minute: +m[4] }),
+  },
+];
+
+// Offset of `zone` from UTC, in minutes, at the given instant.
+export function zoneOffsetMinutes(instantMs, zone) {
+  const f = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    hourCycle: 'h23',
+    year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric',
+  });
+  const p = Object.fromEntries(f.formatToParts(new Date(instantMs)).map((x) => [x.type, x.value]));
+  const asUtc = Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second);
+  return Math.round((asUtc - Math.floor(instantMs / 1000) * 1000) / 60000);
+}
+
+// Wall-clock time in `zone` -> Date. Second pass settles DST boundaries.
+export function zonedToDate({ year, month, day, hour, minute }, zone) {
+  const wall = Date.UTC(year, month, day, hour, minute);
+  let t = wall - zoneOffsetMinutes(wall, zone) * 60000;
+  t = wall - zoneOffsetMinutes(t, zone) * 60000;
+  return new Date(t);
+}
+
+// Names without a year: pick the year that puts the date closest to now.
+export function inferYear(parts, now) {
+  const y = now.getUTCFullYear();
+  let best = y;
+  for (const candidate of [y - 1, y, y + 1]) {
+    const d = Date.UTC(candidate, parts.month, parts.day);
+    if (Math.abs(d - now.getTime()) < Math.abs(Date.UTC(best, parts.month, parts.day) - now.getTime())) best = candidate;
+  }
+  return best;
+}
+
+export function providerTag(name) {
+  const m = /\(\s*([A-Za-z+]+)(?:\s+[A-Za-z+]+)?\s*\d+\s*\)/.exec(String(name ?? ''));
+  return m ? m[1].toUpperCase() : null;
+}
+
+// "Sep 22 5:00 PM PT"
+export function formatInZone(date, zone, label) {
+  const s = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+  }).format(date);
+  return `${s.replace(',', '').replace(/ /g, ' ')}${label ? ` ${label}` : ''}`;
+}
+
+// Resolve parsed parts to an instant, or null if the parts are not a real date.
+export function resolveStart(parts, name, now, opts = DEFAULT_TIME_OPTIONS) {
+  const year = parts.year ?? inferYear(parts, now);
+  if (!(parts.month >= 0 && parts.month <= 11 && parts.day >= 1 && parts.day <= 31 && parts.hour <= 23 && parts.minute <= 59)) {
+    return null;
+  }
+  const tag = providerTag(name);
+  const zone = parts.zone ?? (tag && opts.zonesByTag?.[tag]) ?? opts.sourceZone;
+  const date = zonedToDate({ ...parts, year }, zone);
+  return Number.isNaN(date.getTime()) ? null : date;
+}

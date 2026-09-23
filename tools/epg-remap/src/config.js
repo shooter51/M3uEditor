@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { DEFAULT_TIME_OPTIONS } from './eventtime.js';
 import path from 'node:path';
 
 export const DEFAULT_SOURCES = [
@@ -38,6 +39,8 @@ export const DEFAULTS = Object.freeze({
   placeholderExclude: '^\\W*[#=*~_]{2,}|[#=*~_]{2,}\\W*$',
   reviewFloor: 0.6, // below this, a candidate isn't worth reviewing; the channel is "unmatched"
   parseEventNames: true, // guide shows the game parsed from the channel name, not the raw name
+  // Event start times: source zone for unlabeled times (per provider tag), and the zone shown.
+  eventTime: DEFAULT_TIME_OPTIONS,
   emptyEventPlaceholders: false, // rows saying "No event scheduled" for idle event slots
   guideDays: 3, // keep listings up to this many days ahead
   guidePastHours: 6, // ...and from this many hours back
@@ -119,6 +122,13 @@ export function validateConfig(cfg) {
     errors.push('accessToken must be 8+ chars of [A-Za-z0-9_-]');
   }
   if (cfg.reportAuth && !/^[^:]+:.+$/.test(cfg.reportAuth)) errors.push('reportAuth must be "user:pass"');
+  for (const z of [cfg.eventTime?.sourceZone, cfg.eventTime?.displayZone, ...Object.values(cfg.eventTime?.zonesByTag ?? {})]) {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: z });
+    } catch {
+      errors.push(`unknown time zone in eventTime: ${z}`);
+    }
+  }
   if (errors.length) throw new Error(`Invalid config:\n  - ${errors.join('\n  - ')}`);
   return cfg;
 }

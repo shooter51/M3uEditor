@@ -4,27 +4,11 @@
 //   "(FLSP 301) | live:  A vs B _ Field Hockey (A vs B) (2026-09-24 16:00:10)"
 //   "Inter Miami CF vs San Diego FC @ Sep 20 6:30 PM :MLS  01"
 //   "- NO EVENT STREAMING - | 8K EXCLUSIVE | US: MLS PPV 1"      (empty slot)
-// parseEventName() pulls out a guide-friendly title, the listed time as the provider wrote
-// it, and whether the slot is empty or finished. Listed times are kept verbatim: providers mix
-// timezones (some Eastern, some UTC, often unlabeled), so they are shown, not scheduled.
+// parseEventName() pulls out a guide-friendly title, the listed start time converted to the
+// viewer's zone (see eventtime.js for how the source zone is decided), and whether the slot
+// is empty or finished.
 
-const MONTHS = 'Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec';
-const DAYS = 'Mon|Tue|Wed|Thu|Fri|Sat|Sun';
-
-const TIME_PATTERNS = [
-  // start:2026-09-23 00:55:00 stop:2026-09-23 05:00:00
-  { re: /\s*start:\s*(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::\d{2})?(?:\s*stop:\s*[\d-]+ [\d:]+)?/i, fmt: (m) => `${monthName(m[2])} ${+m[3]} ${m[4]}:${m[5]}` },
-  // (2026-09-22 20:00:10)
-  { re: /\(?\s*(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2})?\s*\)?/, fmt: (m) => (+m[1] >= 2090 ? null : `${monthName(m[2])} ${+m[3]} ${m[4]}:${m[5]}`) },
-  // Tue 22 Sep 10:00 EDT (US)
-  { re: new RegExp(`\\b(?:${DAYS})\\s+(\\d{1,2})\\s+(${MONTHS})\\s+(\\d{1,2}:\\d{2})(?:\\s+([A-Z]{2,4}))?(?:\\s*\\(US\\))?`), fmt: (m) => `${m[2]} ${m[1]} ${m[3]}${m[4] ? ` ${m[4]}` : ''}` },
-  // 22-09-2026 | 00:00 (GMT)   (date and time may sit in separate pipe segments)
-  { re: /\b(\d{2})-(\d{2})-(\d{4})\b(?:\s*\|\s*|\s+)(\d{1,2}:\d{2})(?:\s*\(([A-Z]{2,4})\))?/, fmt: (m) => `${monthName(m[2])} ${+m[1]} ${m[4]}${m[5] ? ` ${m[5]}` : ''}` },
-  // @ Sep 20 6:30 PM
-  { re: new RegExp(`\\s*@\\s*((?:${MONTHS})\\s+\\d{1,2}\\s+\\d{1,2}:\\d{2}\\s*[AP]M)`, 'i'), fmt: (m) => m[1] },
-  // - 22/10 11:30
-  { re: /\s+-\s+(\d{1,2})\/(\d{1,2})\s+(\d{1,2}:\d{2})\s*$/, fmt: (m) => `${monthName(m[2])} ${+m[1]} ${m[3]}` },
-];
+import { DEFAULT_TIME_OPTIONS, TIME_PATTERNS, formatInZone, resolveStart } from './eventtime.js';
 
 const EMPTY_MARKERS = /NO EVENTS? (?:STREAMING|SCHEDULED)|NO EVENT\b|OFF ?AIR|\bOFFLINE\b/i;
 const STATUS = /^\s*(ENDED|END|FINISHED|FINAL|LIVE( NOW)?|UPCOMING|SOON)\s*$/i;
@@ -39,17 +23,22 @@ const LABEL_SEGMENTS = [
   /^\s*[\p{L}+&. ]{1,20}\s+\d{1,4}\s*-?\s*$/u, // "UEFA 11 -"
 ];
 
-export function parseEventName(rawName) {
+export function parseEventName(rawName, { now = new Date(), time = DEFAULT_TIME_OPTIONS } = {}) {
   const name = String(rawName ?? '').replace(/\s+/g, ' ').trim();
   let rest = name;
   let when = null;
+  let start = null;
   let emptyByTime = false;
-  for (const { re, fmt } of TIME_PATTERNS) {
+  for (const { re, parts } of TIME_PATTERNS) {
     const m = re.exec(rest);
     if (!m) continue;
-    const formatted = fmt(m);
-    if (formatted === null) emptyByTime = true;
-    else when ??= formatted;
+    const p = parts(m);
+    if (p.empty) {
+      emptyByTime = true;
+    } else if (!start && !when) {
+      start = resolveStart(p, name, now, time);
+      when = start ? formatInZone(start, time.displayZone, time.displayLabel) : m[0].replace(/[()@]/g, ' ').replace(/^[\s\-–:|]+/, '').trim();
+    }
     rest = `${rest.slice(0, m.index)} ${rest.slice(m.index + m[0].length)}`;
   }
 
@@ -68,15 +57,15 @@ export function parseEventName(rawName) {
 
   // "UEFA | 11 -": a slot label split across segments.
   const bareSlot = /^[\p{L}+&. ]{1,20}\s*\|?\s*\d{1,4}\s*-?\s*$/u.test(name);
-  if (EMPTY_MARKERS.test(name) || emptyByTime || bareSlot) return { title: null, when: null, status: null, empty: true };
+  if (EMPTY_MARKERS.test(name) || emptyByTime || bareSlot) return { title: null, when: null, start: null, status: null, empty: true };
 
   // The event is the most descriptive remaining segment.
   let title = segments.sort((a, b) => letters(b) - letters(a))[0] ?? '';
   title = cleanTitle(title);
   if (!title || letters(title) < 3 || isBareLabel(title)) {
-    return { title: null, when, status, empty: true };
+    return { title: null, when, start, status, empty: true };
   }
-  return { title, when, status, empty: false };
+  return { title, when, start, status, empty: false };
 }
 
 function cleanTitle(t) {
@@ -104,9 +93,6 @@ function letters(s) {
   return (s.match(/\p{L}/gu) ?? []).length;
 }
 
-function monthName(mm) {
-  return MONTHS.split('|')[Number(mm) - 1] ?? mm;
-}
 
 function normalizeStatus(s) {
   const v = s.trim().toUpperCase();

@@ -133,6 +133,16 @@ column):
 The deployed service reads this file from GitHub (`EPG_OVERRIDES`) on every refresh. Commit
 and push the change, and the next 2-hourly rebuild applies it. No redeploy is needed.
 
+## Event times
+
+Event titles carry the listed start time, converted to `eventTime.displayZone` (Pacific by
+default): "NHL: EDM vs. WPG (Sep 22 5:00 PM PT)". The source zone is chosen in this order:
+a zone written in the name ("EDT", "GMT", "ET"); UTC for UFC-style `start:` fields; a
+per-provider-tag zone (`zonesByTag`: WNBA and STAN list UTC); otherwise Eastern. These
+defaults come from a real account's start-hour distribution: ESPN+, BTN+, MiLB, Peacock and
+Flo list games between 8 AM and 11 PM Eastern, while WNBA and STAN cluster between 23:00 and
+02:00 UTC. A time that can't be resolved is shown as written.
+
 ## Output guarantees
 
 - Every `<channel id>` and `<programme channel>` is a playlist id. EPG channels that

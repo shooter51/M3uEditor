@@ -74,7 +74,7 @@ async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
   // Idle event slots ("UFC 09:", "NO EVENT STREAMING") get no rows unless asked for: they
   // would only say "No event scheduled" and make the file much larger.
   const keepIdle = config.emptyEventPlaceholders || !config.parseEventNames;
-  const placeholders = keepIdle ? eventChannels : eventChannels.filter((p) => !parseEventName(p.name).empty);
+  const placeholders = keepIdle ? eventChannels : eventChannels.filter((p) => !parseEventName(p.name, { now }).empty);
   const eventIds = new Set(eventChannels.map((p) => p.id));
   const reportInput = {
     generatedAt: now,
@@ -227,6 +227,7 @@ async function writeOutput({ writer, match, placeholders, sources, config, now }
   for (const p of placeholders) {
     for (const el of placeholderProgrammes(p, now, config.placeholderHours, config.placeholderSlotHours, {
       parseEvents: config.parseEventNames,
+      time: config.eventTime,
     })) {
       await writer.element(el);
       out.programmes++;
