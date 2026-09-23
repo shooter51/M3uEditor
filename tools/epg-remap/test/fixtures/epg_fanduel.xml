@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="fixture">
+  <channel id="FanDuel.TV.us">
+    <display-name>FanDuel TV</display-name>
+    <icon src="https://logo.example/epg/fanduel.png" />
+  </channel>
+  <channel id="FanDuel.Racing.us">
+    <display-name>FanDuel Racing</display-name>
+  </channel>
+  <programme start="20260922180000 +0000" stop="20260922200000 +0000" channel="FanDuel.Racing.us">
+    <title>Live Racing: Saratoga</title>
+  </programme>
+  <programme start="20260922180000 +0000" stop="20260922190000 +0000" channel="FanDuel.TV.us">
+    <title>Run It Back</title>
+  </programme>
+</tv>

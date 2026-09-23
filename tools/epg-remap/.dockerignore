@@ -1,0 +1,9 @@
+node_modules
+coverage
+out
+cache
+test
+.env
+.env.*
+config.json
+overrides.json

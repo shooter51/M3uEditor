@@ -1,0 +1,33 @@
+#EXTM3U x-tvg-url="https://provider.example/xmltv.php"
+#EXTINF:-1 tvg-id="ESPN" tvg-name="US| ESPN HD" tvg-logo="https://logo.example/espn.png" group-title="US| Sports",US| ESPN HD
+https://provider.example/live/fixtureuser/fixturepass/1001.ts
+#EXTINF:-1 tvg-id="US| ESPN SD" tvg-name="US| ESPN SD" group-title="US| Sports",US| ESPN SD
+https://provider.example/live/fixtureuser/fixturepass/1002.ts
+#EXTINF:-1 tvg-id="ESPN" tvg-name="US| ESPN FHD" group-title="US| Sports",US| ESPN FHD
+https://provider.example/live/fixtureuser/fixturepass/1003.ts
+#EXTINF:-1 tvg-id="HBO" tvg-name="US| HBO" group-title="US| Premium",US| HBO
+https://provider.example/live/fixtureuser/fixturepass/2001.ts
+#EXTINF:-1 tvg-id="HBO.EAST" tvg-name="US| HBO (East)" group-title="US| Premium",US| HBO (East)
+https://provider.example/live/fixtureuser/fixturepass/2002.ts
+#EXTINF:-1 tvg-id="CNN" tvg-name="USA: CNN FHD" group-title="US| News",USA: CNN FHD
+https://provider.example/live/fixtureuser/fixturepass/3001.ts
+#EXTINF:-1 tvg-id="FOOD" tvg-name="US- Food Network" group-title="US| Lifestyle",US- Food Network
+https://provider.example/live/fixtureuser/fixturepass/3002.ts
+#EXTINF:-1 tvg-id="DISC" tvg-name="US| Discovery Chanel" group-title="US| Docs",US| Discovery Chanel
+https://provider.example/live/fixtureuser/fixturepass/3003.ts
+#EXTINF:-1 tvg-id="NATGEOW" tvg-name="US| Nat Geo Wld" group-title="US| Docs",US| Nat Geo Wld
+https://provider.example/live/fixtureuser/fixturepass/3004.ts
+#EXTINF:-1 tvg-id="FD" tvg-name="US| Horse Racing" group-title="US| Sports",US| Horse Racing
+https://provider.example/live/fixtureuser/fixturepass/3005.ts
+#EXTINF:-1 tvg-id="LOCAL7" tvg-name="US| Local Access 7" group-title="US| Locals",US| Local Access 7
+https://provider.example/live/fixtureuser/fixturepass/3006.ts
+#EXTINF:-1 tvg-id="" tvg-name="PPV 03" group-title="PPV Events",PPV 03: Team A vs Team B
+https://provider.example/live/fixtureuser/fixturepass/9003.ts
+#EXTINF:-1 tvg-id="PPV04" tvg-name="PPV 04" tvg-logo="https://logo.example/ppv.png" group-title="PPV Events",PPV 04: Fighter One vs. Fighter Two, Main Card
+https://provider.example/live/fixtureuser/fixturepass/9004.ts
+#EXTINF:-1 tvg-id="" tvg-name="" group-title="US| Misc",Mystery Channel
+https://provider.example/live/fixtureuser/fixturepass/9100.ts
+#EXTINF:-1 tvg-id="" tvg-name="Some Movie (2024)" group-title="Movies",Some Movie (2024)
+https://provider.example/movie/fixtureuser/fixturepass/5001.mkv
+#EXTINF:-1 tvg-id="" tvg-name="Some Show S01E01" group-title="Series",Some Show S01E01
+https://provider.example/series/fixtureuser/fixturepass/6001.mkv

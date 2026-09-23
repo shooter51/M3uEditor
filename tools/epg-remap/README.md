@@ -1,0 +1,142 @@
+# epg-remap
+
+Rewrites public XMLTV guide data so its channel ids match your IPTV playlist's `tvg-id`s,
+so TiviMate lines the guide up without hand-mapping. PPV and event channels that have no
+guide data anywhere get placeholder programmes titled with the event name.
+
+```
+playlist (M3U_URL) ─┐
+                    ├─ normalize names ─ match ─ rewrite ids ─ validate ─ epg.xml.gz + report.txt
+epgshare01 feeds ───┘                      ▲
+                               overrides.json (always wins)
+```
+
+## Setup
+
+```bash
+cd tools/epg-remap
+npm ci
+cp .env.example .env                 # put your real M3U_URL in here
+cp config.example.json config.json   # optional; defaults are the same
+```
+
+`M3U_URL` contains your provider credentials. It is only read from the environment or
+`.env`. The tool never logs it, never writes it to disk, and strips it from error messages.
+`.env`, `config.json` and `overrides.json` are git-ignored.
+
+## Usage
+
+```bash
+node src/cli.js --dry-run     # print the match report, write nothing
+node src/cli.js               # write out/epg.xml.gz and out/report.txt
+node src/cli.js --serve       # serve over HTTP, regenerate every refreshHours
+```
+
+In serve mode:
+
+| Path | What |
+|---|---|
+| `/epg.xml.gz` | the guide (point TiviMate here) |
+| `/epg.xml` | same, uncompressed |
+| `/report.txt` | the match report (basic auth if `reportAuth` is set) |
+| `/healthz` | JSON status: last success, last error |
+
+If `accessToken` is set, the guide and report paths move under it
+(`/<token>/epg.xml.gz`) and the bare paths return 404. A failed refresh keeps serving the
+last good file.
+
+## Matching
+
+Names from both sides are normalized in the same way:
+
+- casefold
+- strip country prefixes (`US|`, `USA:`, `US-`)
+- strip quality suffixes (HD/FHD/UHD/4K/SD)
+- strip regional qualifiers (`(East)`, `(Pacific)`, a trailing `West`)
+- strip the filler words `The` and `Channel`
+- split on non-alphanumerics
+
+Each playlist channel is scored against every EPG display name, and against the name
+embedded in the EPG id (`ESPN.HD.us2` becomes "ESPN HD"). The score is a token-set
+similarity.
+
+- **Overrides** in `overrides.json` (`{ "playlist-tvg-id": "epg-channel-id" }`) always win.
+  An override that points at a missing EPG id is listed in the report, and fuzzy matching
+  runs instead.
+- Matches **below `threshold`** (default 0.85) are never accepted. They go to the report's
+  *NEEDS REVIEW* list with the best candidate, ready to copy into `overrides.json`.
+- **Regional ties**: `HBO (East)` gets the East feed. A bare `HBO` gets `regionPreference`
+  (default `west`), then an un-regioned feed.
+- **HD/SD variants** that normalize the same all get the same guide data, one copy per
+  playlist `tvg-id`.
+- Channels with no `tvg-id` use their `tvg-name` (or display name) as the id. They are
+  listed in the report.
+- **Event channels** that don't match get 4-hour placeholder slots covering the next 24
+  hours, titled with the display name. A channel counts as an event channel when its name
+  or group matches `eventPattern` (default: PPV, EVENT, "vs", "@", "NN: ..."). Other
+  unmatched channels stay empty and are listed in the report.
+- VOD entries (`/movie/`, `/series/` URLs) are skipped.
+
+## Output guarantees
+
+- Every `<channel id>` and `<programme channel>` is a playlist id. EPG channels that
+  matched nothing are dropped.
+- Timestamps are `YYYYMMDDHHMMSS +0000`. Offsets are converted to UTC. A programme with an
+  unparseable `start` or no `<title>` is dropped and counted in the report.
+- `<icon>`, `<desc>`, `<credits>` and other children are preserved.
+- The file is written to a temp path, then re-parsed strictly and validated: channels
+  before programmes, unique ids, no dangling references, UTC timestamps, titles present.
+  Only then is it renamed into place. A failed validation keeps the previous file.
+
+## Memory
+
+The feeds run from 6 to 58 MB uncompressed. They are cached on disk in their compressed
+form (with ETag / If-Modified-Since revalidation) and stream-parsed twice: once for
+channels, once for programmes. Only the channel list stays in memory. Against the real
+US2 and FANDUEL1 feeds (811 channels, about 84k programmes) a run takes about 3.5s with
+peak RSS around 145 MB. The playlist is streamed and never cached.
+
+## Configuration
+
+See `config.example.json`. Paths in it are relative to the config file.
+
+| Key | Default | |
+|---|---|---|
+| `sources` | US2 + FANDUEL1 | HTTPS only (plain http returns Cloudflare 520 on epgshare01) |
+| `threshold` | `0.85` | minimum fuzzy score to auto-accept |
+| `regionPreference` | `west` | `west` / `east` / `none` for unqualified names |
+| `overrides` | `overrides.json` | |
+| `outDir` / `cacheDir` | `out` / `cache` | |
+| `eventPattern` | see `src/config.js` | case-insensitive regex |
+| `placeholderHours` / `placeholderSlotHours` | `24` / `4` | |
+| `host` / `port` | `0.0.0.0` / `8080` | serve mode |
+| `refreshHours` | `6` | the upstream feeds rebuild daily |
+| `accessToken` | empty | secret path segment for the public URL |
+| `reportAuth` | empty | `user:pass` basic auth on `/report.txt` |
+
+## Deploying (KVM 8, Dokploy + Traefik)
+
+The VPS already runs Traefik on 80/443, so use `docker-compose.dokploy.yml`:
+
+1. In Dokploy, create a **Compose** app from this repo with compose path
+   `tools/epg-remap/docker-compose.dokploy.yml`.
+2. Environment: `M3U_URL` (required), `EPG_ACCESS_TOKEN` (`openssl rand -hex 16`), and
+   optionally `EPG_REPORT_AUTH=user:pass`.
+3. Domain: `epg.tomshappyplace.com` → service `epg-remap`, port `8080`, HTTPS.
+4. Cloudflare DNS: add an `A` record `epg` → `62.72.3.35`.
+5. TiviMate EPG source: `https://epg.tomshappyplace.com/<EPG_ACCESS_TOKEN>/epg.xml.gz`.
+
+Without Dokploy, `docker compose up -d --build` with the plain `docker-compose.yml` runs
+it on `127.0.0.1:8080` behind whatever proxy you have. It reads `M3U_URL` from `./.env`.
+
+The same `EPG_*` variables work outside Docker too. They override `config.json` (see
+`--help`).
+
+## Tests
+
+```bash
+npm test
+npm run coverage   # fails below 95% line coverage
+```
+
+Tests only use the committed fixtures in `test/fixtures` and make no network calls.
