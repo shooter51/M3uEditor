@@ -4,6 +4,7 @@ import {
   callSignFromName,
   callSignFromTvgId,
   isFillerToken,
+  leadingCallSign,
   nameFromEpgId,
   nameVariants,
 } from './normalize.js';
@@ -82,7 +83,8 @@ export function matchChannels(playlistChannels, epgChannels, overrides = new Map
       callSignFromName(p.name) ??
       callSignFromName(p.tvgName) ??
       [callSignFromTvgId(p.tvgId)].find((s) => s && index.byCallSign.has(s)) ??
-      bareCallSignsFromName(p.name).find((s) => index.byCallSign.has(s));
+      bareCallSignsFromName(p.name).find((s) => index.byCallSign.has(s)) ??
+      [leadingCallSign(p.name), leadingCallSign(p.tvgName)].find((s) => s && index.byCallSign.has(s));
     const station = sign ? index.byCallSign.get(sign) : undefined;
     if (station) {
       matched.push({ playlist: p, epg: epgChannels[station.idx], score: 1, method: 'callsign', tie: false });

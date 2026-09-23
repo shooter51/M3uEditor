@@ -162,6 +162,13 @@ describe('matchChannels', () => {
     expect(r.matched).toEqual([]);
   });
 
+  it('matches a leading call sign when the station exists', () => {
+    const locals = [epg('KTLA-DT.us_locals1', ['KTLA-DT'])];
+    expect(matchChannels([pl('K', 'US: KTLA LOS ANGELES HD')], locals).matched[0]).toMatchObject({ method: 'callsign' });
+    // a leading word that looks like a call sign but has no station stays unmatched
+    expect(matchChannels([pl('W', 'US: WILD LIFE HD')], locals).matched).toEqual([]);
+  });
+
   it('bare call signs count only with a network word and a known station', () => {
     const locals = [epg('WCBS-DT.us_locals1', ['WCBS-DT'])];
     expect(matchChannels([pl('C', 'US: CBS 2 WCBS (NEW YORK) HD')], locals).matched[0].method).toBe('callsign');

@@ -196,6 +196,15 @@ export function callSignFromTvgId(tvgId) {
 // Bare call signs ("CBS 2 WCBS (NEW YORK)") are only candidates when the name also names a
 // broadcast network; the caller must still confirm the station exists in the guide.
 const NETWORK_WORD = /\b(?:NBC|CBS|ABC|FOX|CW|PBS|MYNETWORK|TELEMUNDO|UNIVISION|ION)\b/;
+// A call sign as the first word of the name ("KTLA Los Angeles", "WPIX New York"), even with
+// no network word. Leading position + the caller's "exists in the guide" check make a false
+// positive very unlikely. Country and quality prefixes are stripped first.
+const LEADING_STRIP = /^\s*(?:us|usa|u\.s\.a?\.?)\s*(?:\||:|-)\s*/i;
+export function leadingCallSign(name) {
+  const first = String(name ?? '').replace(LEADING_STRIP, '').trim().split(/[^\p{L}\p{N}]+/u)[0] || '';
+  const up = first.toUpperCase();
+  return /^[KW][A-Z]{3}$/.test(up) && !NOT_CALL_SIGNS.has(up) ? up : null;
+}
 export function bareCallSignsFromName(name) {
   const upper = String(name ?? '').toUpperCase();
   if (!NETWORK_WORD.test(upper)) return [];

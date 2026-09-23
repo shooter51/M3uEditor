@@ -160,6 +160,22 @@ describe('call signs', async () => {
   });
 });
 
+describe('leading call signs', async () => {
+  const { leadingCallSign } = await import('../src/normalize.js');
+  it.each([
+    ['US: KTLA LOS ANGELES HD', 'KTLA'],
+    ['WPIX New York', 'WPIX'],
+    ['US: KCAL 9 LOS ANGELES', 'KCAL'],
+    ['WEST Movies HD', null],
+    ['US: WILD TV', null],
+    ['US: HBO WEST', null],
+    ['ESPN News', null],
+    [undefined, null],
+  ])('%s -> %s', (name, sign) => {
+    expect(leadingCallSign(name)).toBe(sign);
+  });
+});
+
 describe('bare call signs', async () => {
   const { bareCallSignsFromName } = await import('../src/normalize.js');
   it('needs a network word', () => {
