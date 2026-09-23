@@ -44,7 +44,7 @@ In serve mode:
 
 | Path | What |
 |---|---|
-| `/epg.xml.gz` | the guide (point TiviMate here) |
+| `/` or `/epg.xml.gz` | the guide (point TiviMate here) |
 | `/epg.xml` | same, uncompressed |
 | `/report.txt` | the match report (basic auth if `reportAuth` is set) |
 | `/healthz` | JSON status: last success, last error |
@@ -152,7 +152,8 @@ SSH, so the deploy goes through Hostinger's Docker Manager:
 3. To ship a new version, push the branch and re-run the project.
 4. Cloudflare DNS (outherehq.com zone): `A` record `epg` → `62.72.3.35` (DNS only until the certificate is
    issued).
-5. TiviMate EPG source: `https://epg.outherehq.com/<EPG_ACCESS_TOKEN>`.
+5. TiviMate EPG source: `https://epg.outherehq.com` (or `https://epg.outherehq.com/<EPG_ACCESS_TOKEN>`
+   if a token is set).
 
 On a Dokploy host, use `docker-compose.dokploy.yml` instead. Without either, `docker compose up -d --build` with the plain `docker-compose.yml` runs
 it on `127.0.0.1:8080` behind whatever proxy you have. It reads `M3U_URL` from `./.env`.
