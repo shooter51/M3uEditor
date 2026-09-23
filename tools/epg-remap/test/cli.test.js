@@ -61,7 +61,7 @@ describe('cli', () => {
   it('writes output and prints a summary', async () => {
     const t = io();
     expect(await main(['-c', configFile, '--out', path.join(tmp.dir, 'guide')], t.deps)).toBe(0);
-    expect(t.out.join('')).toMatch(/wrote .*guide\/epg\.xml\.gz[\s\S]*8 matched, 1 need review, 2 unmatched, 2 placeholders/);
+    expect(t.out.join('')).toMatch(/wrote .*guide\/epg\.xml\.gz[\s\S]*8 matched, 2 need review, 1 unmatched, 2 placeholders/);
     expect(t.err.join('')).not.toContain('fixturepass');
   });
 
@@ -117,13 +117,16 @@ describe('envOverrides', () => {
   it('maps env vars and ignores empties', () => {
     expect(
       envOverrides({ EPG_ACCESS_TOKEN: 'tok12345', EPG_REPORT_AUTH: 'a:b', EPG_REFRESH_HOURS: '12', EPG_THRESHOLD: '0.9', EPG_REGION_PREFERENCE: 'east' }),
-    ).toEqual({ accessToken: 'tok12345', reportAuth: 'a:b', refreshHours: 12, threshold: 0.9, regionPreference: 'east' });
+    ).toEqual({ accessToken: 'tok12345', reportAuth: 'a:b', refreshHours: 12, threshold: 0.9, regionPreference: 'east', groupFilter: undefined, playlistSource: undefined, overrides: undefined });
     expect(envOverrides({ EPG_THRESHOLD: '' })).toEqual({
       accessToken: undefined,
       reportAuth: undefined,
       refreshHours: undefined,
       threshold: undefined,
       regionPreference: undefined,
+      groupFilter: undefined,
+      playlistSource: undefined,
+      overrides: undefined,
     });
   });
 

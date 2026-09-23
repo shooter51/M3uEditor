@@ -60,7 +60,7 @@ async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
     sources.push({ url, file, note, channels: seen.size, programmes: 0 });
   }
 
-  const overrides = await loadOverrides(config.overrides);
+  const overrides = await loadOverrides(config.overrides, { fetchImpl });
   const match = matchChannels(playlistChannels, epgChannels, overrides, {
     threshold: config.threshold,
     regionPreference: config.regionPreference,

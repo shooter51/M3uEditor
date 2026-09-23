@@ -15,7 +15,7 @@ describe('normalizeName', () => {
     ['HBO HD West', 'hbo', 'west'],
     ['Showtime (Mountain)', 'showtime', 'mountain'],
     ['Starz Central', 'starz', 'central'],
-    ['A&E', 'ae', null],
+    ['A&E', 'aande', null],
     ['Télémundo', 'telemundo', null],
     ['ESPN 2', 'espn2', null],
     ['The Weather Channel HD', 'weather', null],
@@ -37,6 +37,7 @@ describe('normalizeName', () => {
   it('can keep filler words', () => {
     expect(normalizeName('The Weather Channel', { stripFiller: false }).key).toBe('theweatherchannel');
     expect(nameVariants('The Weather Channel').map((v) => v.key)).toEqual(['weather', 'theweatherchannel']);
+    expect(nameVariants('NBA: League Pass 1').map((v) => v.key)).toEqual(['leaguepass1', 'nbaleaguepass1']);
     expect(nameVariants('ESPN').map((v) => v.key)).toEqual(['espn']);
   });
 
@@ -156,5 +157,64 @@ describe('call signs', async () => {
     [undefined, null],
   ])('epg id %s', (id, expected) => {
     expect(callSignFromEpgId(id)).toEqual(expected);
+  });
+});
+
+describe('bare call signs', async () => {
+  const { bareCallSignsFromName } = await import('../src/normalize.js');
+  it('needs a network word', () => {
+    expect(bareCallSignsFromName('US: CBS 2 WCBS (NEW YORK) HD')).toEqual(['WCBS']);
+    expect(bareCallSignsFromName('KIDS WORLD WXYZ')).toEqual([]);
+    expect(bareCallSignsFromName('FOX KIDS WNYW')).toEqual(['WNYW']);
+    expect(bareCallSignsFromName(undefined)).toEqual([]);
+  });
+});
+
+describe('call sign from tvg-id', async () => {
+  const { callSignFromTvgId } = await import('../src/normalize.js');
+  it.each([
+    ['WALA.us', 'WALA'],
+    ['WGN.us', 'WGN'],
+    ['wnbc-dt.us2', 'WNBC'],
+    ['ESPN.us', null],
+    ['West.us', null],
+    ['KXYZ', null],
+    [undefined, null],
+  ])('%s -> %s', (id, sign) => {
+    expect(callSignFromTvgId(id)).toBe(sign);
+  });
+});
+
+describe('renames and loose variants', async () => {
+  const { nameVariants, normalizeName } = await import('../src/normalize.js');
+  const keys = (n) => nameVariants(n).map((v) => (v.exactOnly ? '~' : '') + v.key);
+  it.each([
+    ['FS1 Fox Sports 1 HD', ['fs1foxsports1', '~foxsports1']],
+    ['SNY SportsNet New York HD', ['snysportsnetnewyork', '~sportsnetnewyork']],
+    ['US: NBC BRAVO (EAST)', ['nbcbravo', '~bravo']],
+    ['US: FOX NEWS', ['foxnews']],
+    ['US: FOX SPORTS 1', ['foxsports1']],
+    ['Newsmax TV HD', ['newsmaxtv', '~newsmax']],
+    ['MTV2: Music Television HD', ['mtv2']],
+    ['ESPN Deportes', ['espndeportes']],
+  ])('%s', (name, expected) => {
+    expect(keys(name)).toEqual(expected);
+  });
+  it.each([
+    ['US: FOX SPORTS SUN HD', 'fanduelsportssun'],
+    ['TV: TCM', 'turnerclassicmovies'],
+    ['TV: OWN', 'oprahwinfreynetwork'],
+    ['US: NBC SPORTS WASHINGTON', 'monumentalsportsnetwork'],
+    ['US: CSN PHILADELPHIA HD', 'nbcsportsphiladelphia'],
+    ['AT&T: NAT GEO WILD', 'nationalgeographicwild'],
+    ['US: DISNEY JR WEST HD', 'disneyjunior'],
+    ['MTV - Music Television HD (Pacific)', 'mtv'],
+    ['US: ESPN NEWS HD', 'espnews'],
+    ['Weeds & Nurse Jackie', 'weedsandnursejackie'],
+  ])('%s -> %s', (name, key) => {
+    expect(normalizeName(name).key).toBe(key);
+  });
+  it('keeps a prefix when nothing else would remain', () => {
+    expect(normalizeName('HD').key).toBe('hd');
   });
 });

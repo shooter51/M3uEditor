@@ -61,7 +61,8 @@ export function tokenSetSimilarity(tokensA, tokensB, minScore = 0) {
 //    ("2" in "espn2");
 //  - longer playlist tokens need a close counterpart ("galazo"~"golazo"), so a leftover word
 //    like "bally" in "Bally Sports Arizona" can't ride on "sports arizona";
-//  - numbers distinguish channels ("Showtime" vs "Showtime 2"), so they must agree both ways.
+//  - numbers distinguish channels ("Showtime" vs "Showtime 2", "News 13" vs "NY1"), so both
+//    names must contain the same numbers.
 // Extra words on the EPG side ("CHSN Chicago Sports Network") are fine.
 export const SHORT_TOKEN = 4;
 const CLOSE_TOKEN = 0.75;
@@ -71,7 +72,7 @@ export function shortTokensAgree(queryTokens, candidateTokens) {
     candidateTokens.includes(t) ||
     joined.includes(t) ||
     (t.length > SHORT_TOKEN && candidateTokens.some((c) => ratio(t, c) >= CLOSE_TOKEN));
-  const queryJoined = queryTokens.join('');
-  const numbersOk = candidateTokens.every((t) => !/^\d+$/.test(t) || queryTokens.includes(t) || queryJoined.includes(t));
-  return queryTokens.every(covered) && numbersOk;
+  // The numbers in both names must be the same set ("Spectrum News 13" is not "NY1").
+  const numbers = (tokens) => [...new Set(tokens.join(' ').match(/\d+/g) ?? [])].sort().join(',');
+  return queryTokens.every(covered) && numbers(queryTokens) === numbers(candidateTokens);
 }

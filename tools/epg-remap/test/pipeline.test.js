@@ -77,8 +77,8 @@ describe('generate (end to end on fixtures)', () => {
     expect(report).toBe(result.report);
     expect(report).toMatch(/0\.9\d\d {2}DISC {2}"US\| Discovery Chanel" {2}-> {2}Discovery\.Channel\.HD\.us2/);
     expect(report).toContain('HBO.West.us2  "HBO West"  [exact, tie]');
-    expect(report).toMatch(/NEEDS REVIEW[^\n]*\(1\) ==\n0\.\d+ {2}Mystery Channel/);
-    expect(report).toMatch(/UNMATCHED PLAYLIST CHANNELS \(2\) ==\nNATGEOW[^\n]*\nLOCAL7[^\n]*\n\n/);
+    expect(report).toMatch(/NEEDS REVIEW[^\n]*\(2\) ==\n0\.8\d+ {2}NATGEOW[^\n]*National\.Geographic\.Wild[^\n]*\n0\.\d+ {2}Mystery Channel/);
+    expect(report).toMatch(/UNMATCHED PLAYLIST CHANNELS \(1\) ==\nLOCAL7[^\n]*\n\n/);
     expect(report).toContain('Weather.Nation.us2  "WeatherNation"');
     expect(report).toContain('LOCAL7  ->  Does.Not.Exist.us');
     expect(report).toContain('"PPV 03"');

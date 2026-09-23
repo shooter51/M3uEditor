@@ -142,6 +142,58 @@ describe('matchChannels', () => {
     expect(unknown.review[0].epg.id).toBe('NBC.Sports.Boston.HD.us2');
   });
 
+  it('a null override blocks a fuzzy match too, keyed by playlist id or tvg-id', () => {
+    const texas = [epg('MLB-TexasRangers.us', ['MLB - Texas Rangers'])];
+    expect(matchChannels([pl('24/7: TEXAS RANGER', '24/7: TEXAS RANGER', { tvgId: '' })], texas).matched).toHaveLength(1);
+    const byId = matchChannels([pl('24/7: TEXAS RANGER', '24/7: TEXAS RANGER', { tvgId: '' })], texas, new Map([['24/7: TEXAS RANGER', null]]));
+    expect(byId.matched).toEqual([]);
+    const p = pl('fallback-id', '24/7: TEXAS RANGER', { tvgId: 'walker.us' });
+    expect(matchChannels([p], texas, new Map([['walker.us', null]])).matched).toEqual([]);
+  });
+
+  it('a null override blocks any match', () => {
+    const r = matchChannels([pl('ESPN', 'ESPN HD')], EPG, new Map([['ESPN', null]]));
+    expect(r.matched).toEqual([]);
+    expect(r.unmatched.map((p) => p.id)).toEqual(['ESPN']);
+  });
+
+  it('numbers must agree for a fuzzy match', () => {
+    const r = matchChannels([pl('S', 'US: SPECTRUM NEWS 13 HD')], [epg('ny1', ['Spectrum News - NY1 - STVA'])]);
+    expect(r.matched).toEqual([]);
+  });
+
+  it('bare call signs count only with a network word and a known station', () => {
+    const locals = [epg('WCBS-DT.us_locals1', ['WCBS-DT'])];
+    expect(matchChannels([pl('C', 'US: CBS 2 WCBS (NEW YORK) HD')], locals).matched[0].method).toBe('callsign');
+    expect(matchChannels([pl('D', 'US: CBS 2 WXYZ')], locals).matched).toEqual([]);
+  });
+
+  it('keeps a platform prefix that is part of the name', () => {
+    const r = matchChannels([pl('L', 'NBA: LEAGUE PASS 1')], [epg('NBA.League.Pass.1.us2', ['NBA League Pass 1'])]);
+    expect(r.matched[0].method).toBe('exact');
+  });
+
+  it('uses a call-sign tvg-id when the station exists', () => {
+    const locals = [epg('WSFL-DT.us_locals1', ['WSFL-DT'])];
+    const hit = matchChannels([pl('WSFL.us', 'US: CW 39 HD [MIAMI]', { tvgId: 'WSFL.us' })], locals);
+    expect(hit.matched[0]).toMatchObject({ method: 'callsign' });
+    const miss = matchChannels([pl('WZZZ.us', 'US: CW 39 HD [MIAMI]', { tvgId: 'WZZZ.us' })], locals);
+    expect(miss.matched).toEqual([]);
+  });
+
+  it('loose exact forms match, but a precise exact match wins', () => {
+    const feeds = [epg('FS1.Fox.Sports.1.HD.us2', ['FS1 Fox Sports 1 HD']), epg('Bravo.us', ['Bravo'])];
+    const r = matchChannels([pl('F', 'US: FOX SPORTS 1'), pl('B', 'US: NBC BRAVO (EAST)')], feeds);
+    expect(r.matched.map((m) => [m.playlist.id, m.epg.id, m.score])).toEqual([
+      ['F', 'FS1.Fox.Sports.1.HD.us2', 0.99],
+      ['B', 'Bravo.us', 0.99],
+    ]);
+    const both = matchChannels([pl('C', 'CBS News Boston')], [epg('nbc', ['NBC News Boston']), epg('cbs', ['CBS News Boston'])]);
+    expect(both.matched[0].epg.id).toBe('cbs');
+    // loose forms never feed fuzzy scoring
+    expect(matchChannels([pl('G', 'NBC Bravx')], [epg('Bravo.us', ['Bravo'])]).matched).toEqual([]);
+  });
+
   it('overrides still beat call signs', () => {
     const locals = [epg('WBTS-CD.us_locals1', ['WBTS-CD']), epg('Other.us', ['Other'])];
     const r = matchChannels([pl('B', 'NBC (WBTS)')], locals, new Map([['B', 'Other.us']]));

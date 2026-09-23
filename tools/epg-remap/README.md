@@ -94,6 +94,16 @@ similarity.
   (`#### MIAMI ####`).
 - Provider decorations are ignored: platform tags (`AT&T:`, `TV:`, `RK:`), feed codes
   (`(A)`, `(D)`), and superscript tags like `ᴿᴬᵂ ⁶⁰ᶠᵖˢ` or `⁽ᴮᴷ⁾`.
+- Networks that were renamed or have short forms are normalized on both sides, so each
+  spelling meets the other: Bally/Fox regional → FanDuel Sports, CSN → NBC Sports,
+  NBC Sports Washington → Monumental, NBC Sports Chicago → Chicago Sports Network,
+  TCM, OWN, Disney Jr, Nat Geo, ESPN News, "MTV - Music Television", and "&" → "and".
+- Looser forms may only match exactly, and they score 0.99, so a precise match always wins.
+  They cover a leading network word ("NBC BRAVO" → Bravo), a leading acronym ("FS1 Fox
+  Sports 1", "SNY SportsNet New York") and a trailing "TV"/"Network" ("Newsmax TV").
+- Call signs come from the name ("(WBTS)"), from a call-sign tvg-id ("WALA.us"), or appear
+  bare next to a network word ("CBS 2 WCBS"). A call sign only counts if that station
+  exists in the guide.
 - Guards on fuzzy matches. A candidate is never auto-accepted when:
   - a short brand token differs (`NBC` vs `CBS`);
   - the numbers differ (`Showtime` vs `Showtime 2`);
@@ -104,6 +114,24 @@ similarity.
   the review list.
 - Separator rows such as `##### PPV HD/4K #####` never get placeholders
   (`placeholderExclude`).
+
+## Working the review list
+
+`deploy/overrides.json` holds reviewed decisions, keyed by playlist id (the report's second
+column):
+
+```json
+{
+  "US: SHOWTIME HD": "Paramount+.with.Showtime.HD.us2",
+  "24/7: TEXAS RANGER": null
+}
+```
+
+- A string forces that EPG channel: it wins over call signs and name matching.
+- `null` blocks a channel. It never gets a guide (event placeholders still apply).
+
+The deployed service reads this file from GitHub (`EPG_OVERRIDES`) on every refresh. Commit
+and push the change, and the next 2-hourly rebuild applies it. No redeploy is needed.
 
 ## Output guarantees
 

@@ -15,6 +15,7 @@ services:
       EPG_REPORT_AUTH: ${EPG_REPORT_AUTH:-}
       EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-2}
       EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
+      EPG_OVERRIDES: ${EPG_OVERRIDES:-https://raw.githubusercontent.com/shooter51/M3uEditor/epg-remap/tools/epg-remap/deploy/overrides.json}
       EPG_REF: ${EPG_REF:-epg-remap}
       EPG_HOST: ${EPG_HOST:-epg.outherehq.com}
     entrypoint: ["sh", "-ec"]

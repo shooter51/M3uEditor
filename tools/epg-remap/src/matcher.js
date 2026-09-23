@@ -1,10 +1,19 @@
-import { callSignFromEpgId, callSignFromName, isFillerToken, nameFromEpgId, nameVariants } from './normalize.js';
+import {
+  bareCallSignsFromName,
+  callSignFromEpgId,
+  callSignFromName,
+  callSignFromTvgId,
+  isFillerToken,
+  nameFromEpgId,
+  nameVariants,
+} from './normalize.js';
 import { shortTokensAgree, tokenSetSimilarity } from './similarity.js';
 
 const EPS = 1e-9;
 // Words shared by more EPG names than this ("tv", "news", "movies") are too common to pull in
 // candidates on their own; a candidate must also share a rarer word.
 const COMMON_TOKEN_LIMIT = 150;
+const LOOSE_EXACT = 0.99;
 
 // epgChannels: [{ key, id, source, order, displayNames: [] }]
 // Each EPG channel is indexed under all of its display names plus the name embedded in its id.
@@ -39,7 +48,8 @@ export function buildEpgIndex(epgChannels) {
   return { channels: epgChannels, forms, byKey, byToken, byId, byCallSign };
 }
 
-// Returns { matched, review, unmatched, brokenOverrides, unusedEpg }.
+// Returns { matched, review, unmatched, brokenOverrides, unusedEpg }. Overrides map a playlist
+// id to an EPG id (forced match) or to null (forced "no guide").
 export function matchChannels(playlistChannels, epgChannels, overrides = new Map(), opts = {}) {
   const { threshold = 0.85, regionPreference = 'west', reviewFloor = 0.6 } = opts;
   const index = buildEpgIndex(epgChannels);
@@ -49,7 +59,14 @@ export function matchChannels(playlistChannels, epgChannels, overrides = new Map
   const brokenOverrides = [];
 
   for (const p of playlistChannels) {
-    const overrideId = overrides.get(p.id) ?? (p.tvgId ? overrides.get(p.tvgId) : undefined);
+    // `has`, not `??`: a null override (block) must not fall through to the tvg-id lookup.
+    const overrideKey = overrides.has(p.id) ? p.id : p.tvgId && overrides.has(p.tvgId) ? p.tvgId : undefined;
+    const overrideId = overrideKey === undefined ? undefined : overrides.get(overrideKey);
+    if (overrideId === null) {
+      // Explicitly marked as having no guide data.
+      unmatched.push(p);
+      continue;
+    }
     if (overrideId !== undefined) {
       const idx = index.byId.get(overrideId);
       if (idx !== undefined) {
@@ -61,7 +78,11 @@ export function matchChannels(playlistChannels, epgChannels, overrides = new Map
 
     // Local affiliates: a call sign in the name ("NBC 10 (WBTS) BOSTON") identifies the station
     // exactly, which beats any name similarity.
-    const sign = callSignFromName(p.name) ?? callSignFromName(p.tvgName);
+    const sign =
+      callSignFromName(p.name) ??
+      callSignFromName(p.tvgName) ??
+      [callSignFromTvgId(p.tvgId)].find((s) => s && index.byCallSign.has(s)) ??
+      bareCallSignsFromName(p.name).find((s) => index.byCallSign.has(s));
     const station = sign ? index.byCallSign.get(sign) : undefined;
     if (station) {
       matched.push({ playlist: p, epg: epgChannels[station.idx], score: 1, method: 'callsign', tie: false });
@@ -124,7 +145,10 @@ function bestCandidate(p, index, regionPreference, threshold, minScore = 0) {
     for (const formIdx of candidateForms) {
       const form = index.forms[formIdx];
       const exact = form.key === q.key;
-      let score = exact ? 1 : tokenSetSimilarity(q.tokens, form.tokens, minScore);
+      const loose = q.exactOnly || form.exactOnly;
+      if (loose && !exact) continue;
+      // A match through a loosened form counts, but a precise exact match must outrank it.
+      let score = exact ? (loose ? LOOSE_EXACT : 1) : tokenSetSimilarity(q.tokens, form.tokens, minScore);
       // Never auto-accept on a short-token mismatch, or a one-word name matched only by
       // spelling ("Wilds" ~ "Wild Wild West"); leave those for review.
       if (!exact && score + EPS >= threshold && (q.tokens.filter((t) => !isFillerToken(t)).length < 2 || !shortTokensAgree(q.tokens, form.tokens))) {

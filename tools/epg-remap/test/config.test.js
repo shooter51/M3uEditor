@@ -79,18 +79,34 @@ describe('loadOverrides', () => {
     const f = path.join(tmp.dir, 'o.json');
     await writeFile(f, '{"ESPN":"ESPN.HD.us2"}');
     expect([...(await loadOverrides(f))]).toEqual([['ESPN', 'ESPN.HD.us2']]);
+    await writeFile(f, '{"X":null}');
+    expect([...(await loadOverrides(f))]).toEqual([['X', null]]);
   });
 
   it.each([
     ['{', 'not valid JSON'],
     ['[]', 'must be an object'],
     ['null', 'must be an object'],
-    ['{"a":1}', 'non-empty string'],
-    ['{"a":""}', 'non-empty string'],
+    ['{"a":1}', 'EPG channel id or null'],
+    ['{"a":""}', 'EPG channel id or null'],
   ])('rejects %s', async (body, message) => {
     const f = path.join(tmp.dir, 'o.json');
     await writeFile(f, body);
     await expect(loadOverrides(f)).rejects.toThrow(message);
+  });
+
+  it('fetches overrides from an https URL', async () => {
+    const url = 'https://raw.example/overrides.json';
+    const ok = async () => new Response('{"A":"B","C":null}');
+    expect([...(await loadOverrides(url, { fetchImpl: ok }))]).toEqual([['A', 'B'], ['C', null]]);
+    expect((await loadOverrides(url, { fetchImpl: async () => new Response('', { status: 404 }) })).size).toBe(0);
+    await expect(loadOverrides(url, { fetchImpl: async () => new Response('', { status: 500 }) })).rejects.toThrow('HTTP 500');
+    await expect(loadOverrides(url, { fetchImpl: async () => { throw new Error('down'); } })).rejects.toThrow('down');
+  });
+
+  it('keeps an https overrides URL as-is in config', async () => {
+    const cfg = await loadConfig(null, { overrides: 'https://raw.example/o.json' });
+    expect(cfg.overrides).toBe('https://raw.example/o.json');
   });
 
   it('rethrows other read errors', async () => {

@@ -11,6 +11,8 @@ services:
       EPG_REPORT_AUTH: ${EPG_REPORT_AUTH:-}
       EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-2}
       EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
+      # Reviewed matches and blocks, fetched fresh on every refresh: edit, push, done.
+      EPG_OVERRIDES: ${EPG_OVERRIDES:-https://raw.githubusercontent.com/shooter51/M3uEditor/epg-remap/tools/epg-remap/deploy/overrides.json}
       PORT: "8080"
       # Keep the heap well inside the 512M limit; the locals feed makes generation heavier.
       NODE_OPTIONS: --max-old-space-size=384

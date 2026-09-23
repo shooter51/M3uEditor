@@ -65,6 +65,7 @@ export async function loadConfig(configPath, cliOverrides = {}, { required = fal
   const baseDir = configPath ? path.dirname(path.resolve(configPath)) : process.cwd();
   const merged = { ...DEFAULTS, ...fileConfig, ...stripUndefined(cliOverrides) };
   for (const key of ['overrides', 'outDir', 'cacheDir']) {
+    if (key === 'overrides' && /^https:\/\//i.test(merged[key])) continue;
     merged[key] = path.resolve(baseDir, merged[key]);
   }
   return validateConfig(merged);
@@ -114,13 +115,27 @@ export function validateConfig(cfg) {
   return cfg;
 }
 
-export async function loadOverrides(file) {
+// `file` is a local path or an https URL (fetched on every run, so a pushed edit applies on the
+// next refresh without a redeploy).
+export async function loadOverrides(file, { fetchImpl = fetch } = {}) {
   let raw;
-  try {
-    raw = await readFile(file, 'utf8');
-  } catch (err) {
-    if (err.code === 'ENOENT') return new Map();
-    throw err;
+  if (/^https:\/\//i.test(file)) {
+    let res;
+    try {
+      res = await fetchImpl(file, { signal: AbortSignal.timeout(30_000) });
+    } catch (err) {
+      throw new Error(`cannot fetch overrides ${file}: ${err.message}`);
+    }
+    if (res.status === 404) return new Map();
+    if (!res.ok) throw new Error(`cannot fetch overrides ${file}: HTTP ${res.status}`);
+    raw = await res.text();
+  } else {
+    try {
+      raw = await readFile(file, 'utf8');
+    } catch (err) {
+      if (err.code === 'ENOENT') return new Map();
+      throw err;
+    }
   }
   let parsed;
   try {
@@ -129,11 +144,14 @@ export async function loadOverrides(file) {
     throw new Error(`overrides file is not valid JSON: ${err.message}`);
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    throw new Error('overrides file must be an object of { "playlist-tvg-id": "epg-channel-id" }');
+    throw new Error('overrides file must be an object of { "playlist-tvg-id": "epg-channel-id" | null }');
   }
   const map = new Map();
   for (const [k, v] of Object.entries(parsed)) {
-    if (typeof v !== 'string' || !v) throw new Error(`override for "${k}" must be a non-empty string`);
+    // null = "this channel has no guide": never match it (placeholders still apply).
+    if (v !== null && (typeof v !== 'string' || !v)) {
+      throw new Error(`override for "${k}" must be an EPG channel id or null`);
+    }
     map.set(k, v);
   }
   return map;
