@@ -71,6 +71,8 @@ describe('server', () => {
       (await fetch(`${base}/epg.xml.gz`, { headers: { 'if-modified-since': new Date('2026-09-21').toUTCString() } })).status,
     ).toBe(200);
     expect((await fetch(`${base}/nope`)).status).toBe(404);
+    expect((await fetch(`${base}/EPG.xml.gz`)).status).toBe(200);
+    expect((await fetch(`${base}/Report.TXT`)).status).toBe(200);
     const root = await fetch(`${base}/`);
     expect(root.status).toBe(200);
     expect(root.headers.get('content-type')).toBe('application/gzip');

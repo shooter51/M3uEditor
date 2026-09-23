@@ -11,7 +11,7 @@ export function createEpgServer({ config, generate, log = () => {}, setIntervalI
   const state = { lastSuccess: null, lastError: null, running: null };
   const outFile = path.join(config.outDir, config.outputFile);
   const reportFile = path.join(config.outDir, config.reportFile);
-  const prefix = config.accessToken ? `/${config.accessToken}` : '';
+  const prefix = config.accessToken ? `/${config.accessToken.toLowerCase()}` : '';
 
   function regenerate() {
     if (state.running) return state.running;
@@ -47,7 +47,8 @@ export function createEpgServer({ config, generate, log = () => {}, setIntervalI
       res.writeHead(405, { allow: 'GET, HEAD' });
       return res.end();
     }
-    const { pathname } = new URL(req.url, 'http://localhost');
+    // Case-insensitive: TV remotes like to capitalize ("/EPG.xml.gz").
+    const pathname = new URL(req.url, 'http://localhost').pathname.toLowerCase();
     if (pathname === '/healthz') {
       const body = JSON.stringify({
         ok: Boolean(state.lastSuccess) && !state.lastError,
