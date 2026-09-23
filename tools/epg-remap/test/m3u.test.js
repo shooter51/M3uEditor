@@ -27,8 +27,8 @@ describe('parseExtinf', () => {
 describe('parseM3u', () => {
   it('streams the fixture and skips VOD', async () => {
     const { entries, stats } = await parseM3u(createReadStream(fixture('playlist.m3u')));
-    expect(stats).toEqual({ total: 18, vodSkipped: 2 });
-    expect(entries).toHaveLength(16);
+    expect(stats).toEqual({ total: 19, vodSkipped: 2 });
+    expect(entries).toHaveLength(17);
     expect(entries.every((e) => !('url' in e))).toBe(true);
   });
 

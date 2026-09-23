@@ -55,6 +55,8 @@ describe('validateConfig', () => {
     [{ port: 70000 }, 'port'],
     [{ port: -1 }, 'port'],
     [{ refreshHours: 0 }, 'refreshHours'],
+    [{ guideDays: 0 }, 'guideDays'],
+    [{ guidePastHours: -1 }, 'guidePastHours'],
     [{ placeholderHours: 2 }, 'placeholderHours'],
     [{ eventPattern: '(' }, 'eventPattern'],
     [{ placeholderExclude: '[' }, 'placeholderExclude'],

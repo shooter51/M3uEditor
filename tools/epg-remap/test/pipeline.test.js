@@ -2,7 +2,7 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { gunzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { generate, remappedChannel } from '../src/pipeline.js';
+import { generate, remappedChannel, slimChildren } from '../src/pipeline.js';
 import * as validate from '../src/validate.js';
 import * as xmltv from '../src/xmltv.js';
 import { ENV, fakeFetch, M3U_URL, NOW, tempDir, testConfig } from './helpers.js';
@@ -40,8 +40,14 @@ describe('generate (end to end on fixtures)', () => {
     expect(xml).not.toMatch(/channel="[^"]*\.us"/);
 
     // HD/SD collision: both playlist ids get ESPN's programmes.
-    expect(programmesFor(xml, 'ESPN')).toEqual(['SportsCenter', 'NFL Live']);
-    expect(programmesFor(xml, 'US| ESPN SD')).toEqual(['SportsCenter', 'NFL Live']);
+    // Guide window (NOW = Sep 22 19:30Z, 6h back, 3 days ahead): next week and two days ago
+    // are cut; this morning (ended 14:00, after 13:30) stays.
+    expect(programmesFor(xml, 'ESPN')).toEqual(['SportsCenter', 'Earlier Today Show', 'NFL Live']);
+    expect(result.output.outsideWindow).toBe(4);
+    expect(programmesFor(xml, 'US| ESPN SD')).toEqual(['SportsCenter', 'Earlier Today Show', 'NFL Live']);
+    // Idle event slots get no rows and no channel.
+    expect(xml).not.toContain('channel="UFC09"');
+    expect(result.report).toContain('(1 idle event slots with no event scheduled are left empty)');
     // Regional collision.
     expect(programmesFor(xml, 'HBO')).toEqual(['West Movie']);
     expect(programmesFor(xml, 'HBO.EAST')).toEqual(['East Movie']);
@@ -71,7 +77,9 @@ describe('generate (end to end on fixtures)', () => {
     expect(xml).toContain('<icon src="https://img.example/sc.jpg" />');
     expect(xml).toContain('<icon src="https://logo.example/epg/espn.png" />');
     expect(xml).toContain('Evening &amp; Late');
-    expect(xml).toContain('<presenter>Wolf Blitzer</presenter>');
+    // Slimmed: guide-visible children kept, cast lists dropped.
+    expect(xml).not.toContain('<credits>');
+    expect(xml).toContain('<episode-num system="xmltv_ns">12.144.</episode-num>');
 
     const report = await readFile(result.output.reportFile, 'utf8');
     expect(report).toBe(result.report);
@@ -105,7 +113,9 @@ describe('generate (end to end on fixtures)', () => {
         throw new Error(`connect failed for ${url}`);
       },
     });
-    const err = await generate({ config, env: ENV, fetchImpl: failing, now: NOW }).catch((e) => e);
+    // Fresh cache dir: no saved channel list to fall back on, so the error surfaces.
+    const noCache = { ...config, cacheDir: path.join(tmp.dir, 'empty-cache') };
+    const err = await generate({ config: noCache, env: ENV, fetchImpl: failing, now: NOW }).catch((e) => e);
     expect(err.message).toMatch(/playlist fetch failed/);
     expect(err.message).not.toContain('fixturepass');
   });
@@ -169,5 +179,75 @@ describe('remappedChannel', () => {
     const out = remappedChannel(el, { id: 'P', name: 'Same' });
     expect(out.attrs.id).toBe('P');
     expect(out.children.map((c) => c.name)).toEqual(['display-name', 'icon']);
+  });
+});
+
+describe('idle event slots', () => {
+  it('can still be given "No event scheduled" rows', async () => {
+    const t = await tempDir();
+    try {
+      const config = await testConfig(t.dir, { emptyEventPlaceholders: true });
+      const { output } = await generate({ config, env: ENV, fetchImpl: fakeFetch(), now: NOW });
+      const xml = gunzipSync(await readFile(output.file)).toString('utf8');
+      expect(programmesFor(xml, 'UFC09')).toEqual(Array(7).fill('No event scheduled'));
+    } finally {
+      await t.cleanup();
+    }
+  });
+});
+
+describe('slimChildren', () => {
+  it('keeps guide-visible children and at most two categories', () => {
+    const el = (name, text = 'x') => ({ name, attrs: {}, children: [text] });
+    const out = slimChildren([el('title'), 'loose', el('credits'), el('rating'), el('category', 'a'), el('category', 'b'), el('category', 'c'), el('icon'), el('previously-shown')]);
+    expect(out.map((c) => c.name + (c.name === 'category' ? `:${c.children[0]}` : ''))).toEqual(['title', 'category:a', 'category:b', 'icon']);
+  });
+
+  it('can be turned off to keep everything', async () => {
+    const t = await tempDir();
+    try {
+      const config = await testConfig(t.dir, { slimProgrammes: false });
+      const { output } = await generate({ config, env: ENV, fetchImpl: fakeFetch(), now: NOW });
+      expect(gunzipSync(await readFile(output.file)).toString('utf8')).toContain('<presenter>Wolf Blitzer</presenter>');
+    } finally {
+      await t.cleanup();
+    }
+  });
+});
+
+describe('playlist fallback cache', () => {
+  it('reuses the last good channel list when the provider is down, within the age limit', async () => {
+    const t = await tempDir();
+    try {
+      const config = await testConfig(t.dir);
+      await generate({ config, env: ENV, fetchImpl: fakeFetch(), now: NOW, dryRun: true });
+      const saved = await readFile(path.join(config.cacheDir, 'playlist-channels.json'), 'utf8');
+      expect(saved).not.toContain('fixturepass');
+      expect(saved).not.toContain('.ts');
+
+      const down = fakeFetch({ 'playlist.m3u': () => new Response('', { status: 502 }) });
+      const logs = [];
+      const later = new Date(NOW.getTime() + 3_600_000);
+      const r = await generate({ config, env: ENV, fetchImpl: down, now: later, dryRun: true, log: (m) => logs.push(m) });
+      expect(r.match.matched.length).toBe(8);
+      expect(r.report).toMatch(/PROVIDER UNAVAILABLE \(playlist fetch failed: HTTP 502\); using channel list saved 2026-09-22T19:30/);
+      expect(logs.some((l) => l.includes('using channel list from'))).toBe(true);
+
+      const tooOld = new Date(NOW.getTime() + 73 * 3_600_000);
+      await expect(generate({ config, env: ENV, fetchImpl: down, now: tooOld, dryRun: true })).rejects.toThrow('HTTP 502');
+    } finally {
+      await t.cleanup();
+    }
+  });
+
+  it('fails as before when there is no saved list', async () => {
+    const t = await tempDir();
+    try {
+      const config = await testConfig(t.dir);
+      const down = fakeFetch({ 'playlist.m3u': () => new Response('', { status: 502 }) });
+      await expect(generate({ config, env: ENV, fetchImpl: down, now: NOW, dryRun: true })).rejects.toThrow('HTTP 502');
+    } finally {
+      await t.cleanup();
+    }
   });
 });

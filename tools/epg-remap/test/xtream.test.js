@@ -117,7 +117,7 @@ describe('loadPlaylist source selection', () => {
     try {
       const config = await testConfig(tmp.dir, { groupFilter: '^PPV' });
       const { entries, stats } = await loadPlaylist({ config, m3uUrl: M3U_URL, fetchImpl: fakeFetch() });
-      expect(entries.map((e) => e.group)).toEqual(['PPV Events', 'PPV Events', 'PPV Events']);
+      expect(entries.map((e) => e.group)).toEqual(['PPV Events', 'PPV Events', 'PPV Events', 'PPV Events']);
       expect(stats.groupFiltered).toBe(13);
     } finally {
       await tmp.cleanup();

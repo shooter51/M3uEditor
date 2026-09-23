@@ -16,6 +16,7 @@ export function buildReport(r) {
     ps.groupFiltered ? `${ps.groupFiltered} outside group filter` : null,
   ].filter(Boolean);
   lines.push(`playlist: ${ps.total} entries${extras.length ? `, ${extras.join(', ')}` : ''}, ${r.playlistChannels} channel ids`);
+  if (ps.cachedFrom) lines.push(`playlist: PROVIDER UNAVAILABLE (${ps.cacheReason}); using channel list saved ${ps.cachedFrom}`);
   for (const s of r.sources) {
     const progs = s.programmes ? `, ${s.programmes} programmes read` : '';
     lines.push(`source: ${s.url} — ${s.channels} channels${progs}${s.note ? ` [${s.note}]` : ''}`);
@@ -23,7 +24,7 @@ export function buildReport(r) {
   lines.push(`threshold: ${r.threshold}`);
   if (r.output) {
     lines.push(
-      `output: ${r.output.channels} channels, ${r.output.programmes} programmes, ${r.output.droppedProgrammes} programmes dropped (bad timestamps)`,
+      `output: ${r.output.channels} channels, ${r.output.programmes} programmes, ${r.output.droppedProgrammes} programmes dropped (bad timestamps), ${r.output.outsideWindow ?? 0} outside the guide window`,
     );
   }
 
@@ -43,6 +44,7 @@ export function buildReport(r) {
   }
 
   h('PLACEHOLDER GUIDE (event channels)', r.placeholders.length);
+  if (r.idleEventSlots) lines.push(`(${r.idleEventSlots} idle event slots with no event scheduled are left empty)`);
   for (const p of r.placeholders) lines.push(`${p.id}  "${p.name}"`);
 
   const unmatched = r.unmatchedNoPlaceholder;

@@ -38,9 +38,14 @@ export const DEFAULTS = Object.freeze({
   placeholderExclude: '^\\W*[#=*~_]{2,}|[#=*~_]{2,}\\W*$',
   reviewFloor: 0.6, // below this, a candidate isn't worth reviewing; the channel is "unmatched"
   parseEventNames: true, // guide shows the game parsed from the channel name, not the raw name
+  emptyEventPlaceholders: false, // rows saying "No event scheduled" for idle event slots
+  guideDays: 3, // keep listings up to this many days ahead
+  guidePastHours: 6, // ...and from this many hours back
+  slimProgrammes: true, // keep only what a guide app shows (see pipeline.slimChildren)
   placeholderHours: 24,
   placeholderSlotHours: 4,
   skipVod: true,
+  playlistCacheHours: 72, // reuse the last good channel list this long when the provider is down
   playlistSource: 'auto', // auto | m3u | xtream (auto: Xtream API when M3U_URL is a get.php link)
   groupFilter: '', // regex on group-title / Xtream category; empty = all groups
   host: '0.0.0.0',
@@ -96,6 +101,9 @@ export function validateConfig(cfg) {
   cfg.port = Number(cfg.port);
   if (!Number.isInteger(cfg.port) || cfg.port < 0 || cfg.port > 65535) errors.push('port must be 0-65535');
   if (!(cfg.refreshHours > 0)) errors.push('refreshHours must be > 0');
+  cfg.guideDays = Number(cfg.guideDays);
+  if (!(cfg.guideDays > 0)) errors.push('guideDays must be > 0');
+  if (!(cfg.guidePastHours >= 0)) errors.push('guidePastHours must be >= 0');
   if (!(cfg.placeholderSlotHours > 0) || !(cfg.placeholderHours >= cfg.placeholderSlotHours)) {
     errors.push('placeholderHours must be >= placeholderSlotHours > 0');
   }

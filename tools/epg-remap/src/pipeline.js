@@ -1,4 +1,4 @@
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { loadOverrides } from './config.js';
 import { parseM3u, toPlaylistChannels } from './m3u.js';
@@ -8,7 +8,8 @@ import { buildReport } from './report.js';
 import { getM3uUrl, makeRedactor } from './secrets.js';
 import { fetchPlaylist, fetchSource } from './sources.js';
 import { fetchXtreamEntries, parseXtreamUrl } from './xtream.js';
-import { normalizeXmltvTime } from './time.js';
+import { formatXmltvTime, parseXmltvTime } from './time.js';
+import { parseEventName } from './events.js';
 import { childTexts, openXmlFile, streamXmltv, XmltvWriter } from './xmltv.js';
 import { validateXmltvFile } from './validate.js';
 
@@ -25,7 +26,7 @@ export async function generate({ config, env = process.env, fetchImpl = fetch, n
 }
 
 async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
-  const { entries, stats: playlistStats } = await loadPlaylist({ config, m3uUrl, fetchImpl, log });
+  const { entries, stats: playlistStats } = await loadPlaylistWithFallback({ config, m3uUrl, fetchImpl, now, log });
   // Section separators ("#### MIAMI ####") are list decoration, not channels.
   const separatorRe = config.placeholderExclude ? new RegExp(config.placeholderExclude, 'i') : null;
   const playlistChannels = toPlaylistChannels(separatorRe ? entries.filter((e) => !separatorRe.test(e.name)) : entries);
@@ -69,8 +70,12 @@ async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
 
   const eventRe = new RegExp(config.eventPattern, 'i');
   const withoutGuide = [...match.unmatched, ...match.review.map((r) => r.playlist)];
-  const placeholders = withoutGuide.filter((p) => isEventChannel(p, eventRe));
-  const placeholderIds = new Set(placeholders.map((p) => p.id));
+  const eventChannels = withoutGuide.filter((p) => isEventChannel(p, eventRe));
+  // Idle event slots ("UFC 09:", "NO EVENT STREAMING") get no rows unless asked for: they
+  // would only say "No event scheduled" and make the file much larger.
+  const keepIdle = config.emptyEventPlaceholders || !config.parseEventNames;
+  const placeholders = keepIdle ? eventChannels : eventChannels.filter((p) => !parseEventName(p.name).empty);
+  const eventIds = new Set(eventChannels.map((p) => p.id));
   const reportInput = {
     generatedAt: now,
     dryRun,
@@ -80,7 +85,8 @@ async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
     threshold: config.threshold,
     match,
     placeholders,
-    unmatchedNoPlaceholder: match.unmatched.filter((p) => !placeholderIds.has(p.id)),
+    idleEventSlots: eventChannels.length - placeholders.length,
+    unmatchedNoPlaceholder: match.unmatched.filter((p) => !eventIds.has(p.id)),
     fallbackIds: playlistChannels.filter((p) => p.idFallback),
   };
 
@@ -118,6 +124,31 @@ async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
   return { report, match, placeholders, unmatched: reportInput.unmatchedNoPlaceholder, output: { ...output, file: outFile, reportFile } };
 }
 
+// Provider panels go down. The last good channel list (names, ids, logos, groups: never
+// stream URLs or credentials) is kept in the cache dir and reused for up to
+// playlistCacheHours, so an outage doesn't stop the guide from refreshing.
+export async function loadPlaylistWithFallback({ config, m3uUrl, fetchImpl, now, log = () => {} }) {
+  const cacheFile = path.join(config.cacheDir, 'playlist-channels.json');
+  try {
+    const result = await loadPlaylist({ config, m3uUrl, fetchImpl, log });
+    await mkdir(config.cacheDir, { recursive: true });
+    await writeFile(`${cacheFile}.tmp`, JSON.stringify({ savedAt: now.toISOString(), ...result }));
+    await rename(`${cacheFile}.tmp`, cacheFile);
+    return result;
+  } catch (err) {
+    let cached;
+    try {
+      cached = JSON.parse(await readFile(cacheFile, 'utf8'));
+    } catch {
+      throw err;
+    }
+    const ageHours = (now.getTime() - Date.parse(cached.savedAt)) / 3_600_000;
+    if (!(ageHours <= config.playlistCacheHours)) throw err;
+    log(`playlist unavailable (${err.message}); using channel list from ${cached.savedAt}`);
+    return { entries: cached.entries, stats: { ...cached.stats, cachedFrom: cached.savedAt, cacheReason: err.message } };
+  }
+}
+
 export async function loadPlaylist({ config, m3uUrl, fetchImpl, log = () => {} }) {
   const groupFilter = config.groupFilter ? new RegExp(config.groupFilter, 'i') : null;
   const xtream = config.playlistSource === 'm3u' ? null : parseXtreamUrl(m3uUrl);
@@ -144,7 +175,10 @@ async function writeOutput({ writer, match, placeholders, sources, config, now }
     ids.push(m.playlist);
     targets.set(m.epg.key, ids);
   }
-  const out = { channels: 0, programmes: 0, droppedProgrammes: 0 };
+  const out = { channels: 0, programmes: 0, droppedProgrammes: 0, outsideWindow: 0 };
+  // Only listings a viewer will scroll to: a few hours back, guideDays ahead.
+  const windowStart = now.getTime() - config.guidePastHours * 3_600_000;
+  const windowEnd = now.getTime() + config.guideDays * 86_400_000;
 
   await writer.start();
   // All <channel> elements precede all <programme> elements, per the XMLTV DTD.
@@ -164,20 +198,24 @@ async function writeOutput({ writer, match, placeholders, sources, config, now }
       onProgramme: (el) => {
         const playlists = targets.get(`${i}\u0000${el.attrs.channel}`);
         if (!playlists) return;
-        const start = normalizeXmltvTime(el.attrs.start);
+        const startDate = parseXmltvTime(el.attrs.start);
         const hasTitle = el.children.some((c) => typeof c !== 'string' && c.name === 'title');
-        if (!start || !hasTitle) {
+        if (!startDate || !hasTitle) {
           out.droppedProgrammes += playlists.length;
           return;
         }
-        const attrs = { ...el.attrs, start };
-        if (el.attrs.stop !== undefined) {
-          const stop = normalizeXmltvTime(el.attrs.stop);
-          if (stop) attrs.stop = stop;
-          else delete attrs.stop;
+        const stopDate = el.attrs.stop === undefined ? null : parseXmltvTime(el.attrs.stop);
+        const endsBy = (stopDate ?? startDate).getTime();
+        if (startDate.getTime() >= windowEnd || endsBy <= windowStart) {
+          out.outsideWindow += playlists.length;
+          return;
         }
+        const attrs = { ...el.attrs, start: formatXmltvTime(startDate) };
+        if (stopDate) attrs.stop = formatXmltvTime(stopDate);
+        else delete attrs.stop;
+        const children = config.slimProgrammes ? slimChildren(el.children) : el.children;
         for (const p of playlists) {
-          writer.writeElement({ ...el, attrs: { ...attrs, channel: p.id } });
+          writer.writeElement({ ...el, attrs: { ...attrs, channel: p.id }, children });
           out.programmes++;
         }
       },
@@ -195,6 +233,20 @@ async function writeOutput({ writer, match, placeholders, sources, config, now }
     }
   }
   return out;
+}
+
+// What a TV guide app shows. Everything else (cast lists, content ratings, star ratings,
+// "previously shown" dates, series ids...) makes up a large part of the file for no visible gain.
+const KEEP_CHILDREN = new Set(['title', 'sub-title', 'desc', 'category', 'icon', 'episode-num', 'date', 'new', 'live', 'premiere']);
+const MAX_CATEGORIES = 2;
+
+export function slimChildren(children) {
+  let categories = 0;
+  return children.filter((c) => {
+    if (typeof c === 'string' || !KEEP_CHILDREN.has(c.name)) return false;
+    if (c.name === 'category') return ++categories <= MAX_CATEGORIES;
+    return true;
+  });
 }
 
 // The EPG channel's children (names, icons, urls) under the playlist's id. The playlist's

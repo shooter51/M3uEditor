@@ -25,6 +25,8 @@ https://provider.example/live/fixtureuser/fixturepass/3006.ts
 https://provider.example/live/fixtureuser/fixturepass/9003.ts
 #EXTINF:-1 tvg-id="PPV04" tvg-name="PPV 04" tvg-logo="https://logo.example/ppv.png" group-title="PPV Events",PPV 04: Fighter One vs. Fighter Two, Main Card
 https://provider.example/live/fixtureuser/fixturepass/9004.ts
+#EXTINF:-1 tvg-id="UFC09" tvg-name="UFC 09" group-title="PPV Events",UFC 09:
+https://provider.example/live/fixtureuser/fixturepass/9009.ts
 #EXTINF:-1 tvg-id="" tvg-name="" group-title="PPV Events",##### PPV HD/4K #####
 https://provider.example/live/fixtureuser/fixturepass/9000.ts
 #EXTINF:-1 tvg-id="" tvg-name="" group-title="US| Misc",## 24/7 CRIME ##

@@ -158,6 +158,23 @@ API, and peaks around 380 MB with `--max-old-space-size=384`. Fuzzy scoring skip
 words ("tv", "news") when collecting candidates, and skips pairs whose lengths already rule
 out a reviewable score.
 
+## Guide size
+
+TV sticks are slow to import big guides, so the output keeps only what a guide shows:
+
+- listings from `guidePastHours` (6) back to `guideDays` (3) ahead;
+- per programme: title, sub-title, description, up to two categories, image, episode
+  number, year, and the new/live/premiere flags (`slimProgrammes`);
+- no rows for idle event slots ("UFC 09:", "NO EVENT STREAMING"), unless
+  `emptyEventPlaceholders` is set.
+
+On the reference account this took the file from 19.4 MB to 10.6 MB compressed. Many
+provider channels are copies of one station (AT&T:, TV:, PRIME:, RK: variants), and each copy
+needs its own listings, since TiviMate matches by channel id.
+
+When the provider's API is down, the last good channel list (names, ids, logos, groups only)
+is reused for up to `playlistCacheHours` (72). The report says so at the top.
+
 ## Configuration
 
 See `config.example.json`. Paths in it are relative to the config file.
@@ -177,6 +194,10 @@ See `config.example.json`. Paths in it are relative to the config file.
 | `placeholderHours` / `placeholderSlotHours` | `24` / `4` | |
 | `host` / `port` | `0.0.0.0` / `8080` | serve mode |
 | `refreshHours` | `6` | the upstream feeds rebuild daily |
+| `guideDays` / `guidePastHours` | `3` / `6` | listing window |
+| `slimProgrammes` | `true` | drop programme details a guide doesn't show |
+| `emptyEventPlaceholders` | `false` | "No event scheduled" rows for idle slots |
+| `playlistCacheHours` | `72` | reuse the last channel list during provider outages |
 | `accessToken` | empty | secret path segment for the public URL |
 | `reportAuth` | empty | `user:pass` basic auth on `/report.txt` |
 

@@ -30,7 +30,7 @@ describe('streamXmltv', () => {
       onChannel: (el) => channels.push(el),
       onProgramme: (el) => programmes.push(el),
     });
-    expect(stats).toMatchObject({ channels: 9, programmes: 14, sawTv: true });
+    expect(stats).toMatchObject({ channels: 9, programmes: 17, sawTv: true });
     expect(channels[0].attrs.id).toBe('ESPN.HD.us2');
     expect(childTexts(channels[0], 'display-name')).toEqual(['ESPN HD']);
     expect(childText(programmes[0], 'sub-title')).toBe('Evening & Late');
