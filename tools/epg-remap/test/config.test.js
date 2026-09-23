@@ -56,6 +56,8 @@ describe('validateConfig', () => {
     [{ refreshHours: 0 }, 'refreshHours'],
     [{ placeholderHours: 2 }, 'placeholderHours'],
     [{ eventPattern: '(' }, 'eventPattern'],
+    [{ placeholderExclude: '[' }, 'placeholderExclude'],
+    [{ reviewFloor: 0.9 }, 'reviewFloor'],
     [{ accessToken: 'short' }, 'accessToken'],
     [{ reportAuth: 'nocolon' }, 'reportAuth'],
   ])('rejects %j', (patch, message) => {

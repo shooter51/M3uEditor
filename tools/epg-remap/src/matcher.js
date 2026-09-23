@@ -1,5 +1,5 @@
 import { nameFromEpgId, nameVariants } from './normalize.js';
-import { tokenSetSimilarity } from './similarity.js';
+import { shortTokensAgree, tokenSetSimilarity } from './similarity.js';
 
 const EPS = 1e-9;
 
@@ -18,7 +18,9 @@ export function buildEpgIndex(epgChannels) {
     const seen = new Set();
     for (const norm of names.flatMap(nameVariants)) {
       if (!norm.tokens.length) continue;
-      const sig = `${norm.key}|${norm.region}`;
+      // Same joined key can come with different word splits ("WeatherNation" vs "Weather Nation");
+      // keep both so the word index sees the split form.
+      const sig = `${norm.tokens.join(' ')}|${norm.region}`;
       if (seen.has(sig)) continue;
       seen.add(sig);
       const formIdx = forms.push({ channelIdx: idx, ...norm }) - 1;
@@ -31,7 +33,7 @@ export function buildEpgIndex(epgChannels) {
 
 // Returns { matched, review, unmatched, brokenOverrides, unusedEpg }.
 export function matchChannels(playlistChannels, epgChannels, overrides = new Map(), opts = {}) {
-  const { threshold = 0.85, regionPreference = 'west' } = opts;
+  const { threshold = 0.85, regionPreference = 'west', reviewFloor = 0.6 } = opts;
   const index = buildEpgIndex(epgChannels);
   const matched = [];
   const review = [];
@@ -49,8 +51,9 @@ export function matchChannels(playlistChannels, epgChannels, overrides = new Map
       brokenOverrides.push({ playlistId: p.id, epgId: overrideId });
     }
 
-    const best = bestCandidate(p, index, regionPreference);
-    if (!best) {
+    const best = bestCandidate(p, index, regionPreference, threshold);
+    // Hopeless candidates are noise in the review list; treat them as no match.
+    if (!best || best.score + EPS < reviewFloor) {
       unmatched.push(p);
     } else if (best.score + EPS >= threshold) {
       matched.push({
@@ -76,15 +79,16 @@ function queriesFor(p) {
   for (const n of [p.name, p.tvgName, p.tvgId, ...p.aliases]) {
     if (!n) continue;
     for (const norm of nameVariants(n)) {
-      if (!norm.tokens.length || seen.has(norm.key)) continue;
-      seen.add(norm.key);
+      const sig = norm.tokens.join(' ');
+      if (!norm.tokens.length || seen.has(sig)) continue;
+      seen.add(sig);
       out.push(norm);
     }
   }
   return out;
 }
 
-function bestCandidate(p, index, regionPreference) {
+function bestCandidate(p, index, regionPreference, threshold) {
   const queries = queriesFor(p);
   if (!queries.length) return null;
   const wantRegion = queries.find((q) => q.region)?.region ?? null;
@@ -97,7 +101,11 @@ function bestCandidate(p, index, regionPreference) {
     for (const formIdx of candidateForms) {
       const form = index.forms[formIdx];
       const exact = form.key === q.key;
-      const score = exact ? 1 : tokenSetSimilarity(q.tokens, form.tokens);
+      let score = exact ? 1 : tokenSetSimilarity(q.tokens, form.tokens);
+      // Never auto-accept on a short-token mismatch; leave it for review.
+      if (!exact && score + EPS >= threshold && !shortTokensAgree(q.tokens, form.tokens)) {
+        score = Math.max(0, threshold - 0.01);
+      }
       const prev = perChannel.get(form.channelIdx);
       if (!prev || score > prev.score + EPS || (Math.abs(score - prev.score) <= EPS && exact && !prev.exact)) {
         perChannel.set(form.channelIdx, { channelIdx: form.channelIdx, score, exact, region: form.region });

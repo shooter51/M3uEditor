@@ -53,6 +53,8 @@ describe('generate (end to end on fixtures)', () => {
     // EPG entry with no playlist counterpart is dropped.
     expect(xml).not.toContain('Weather Now');
     expect(xml).not.toContain('Ghost Show');
+    // A separator row in an event group gets no placeholder.
+    expect(xml).not.toContain('#####');
 
     // Timestamps normalized to UTC; offsets converted; bad ones dropped.
     expect(xml).toContain('start="20260922200000 +0000" stop="20260922210000 +0000" channel="ESPN"');
@@ -73,7 +75,7 @@ describe('generate (end to end on fixtures)', () => {
     expect(report).toMatch(/0\.9\d\d {2}DISC {2}"US\| Discovery Chanel" {2}-> {2}Discovery\.Channel\.HD\.us2/);
     expect(report).toContain('HBO.West.us2  "HBO West"  [exact, tie]');
     expect(report).toMatch(/NEEDS REVIEW[^\n]*\(1\) ==\n0\.\d+ {2}Mystery Channel/);
-    expect(report).toMatch(/UNMATCHED PLAYLIST CHANNELS \(2\) ==\nNATGEOW[^\n]*\nLOCAL7/);
+    expect(report).toMatch(/UNMATCHED PLAYLIST CHANNELS \(3\) ==\nNATGEOW[^\n]*\nLOCAL7[^\n]*\n##### PPV HD\/4K #####/);
     expect(report).toContain('Weather.Nation.us2  "WeatherNation"');
     expect(report).toContain('LOCAL7  ->  Does.Not.Exist.us');
     expect(report).toContain('"PPV 03"');
@@ -96,7 +98,7 @@ describe('generate (end to end on fixtures)', () => {
     for (const secret of ['fixtureuser', 'fixturepass', M3U_URL]) expect(everything).not.toContain(secret);
 
     const failing = fakeFetch({
-      'get.php': (url) => {
+      'playlist.m3u': (url) => {
         throw new Error(`connect failed for ${url}`);
       },
     });

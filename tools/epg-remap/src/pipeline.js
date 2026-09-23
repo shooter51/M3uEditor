@@ -7,6 +7,7 @@ import { isEventChannel, placeholderChannelElement, placeholderProgrammes } from
 import { buildReport } from './report.js';
 import { getM3uUrl, makeRedactor } from './secrets.js';
 import { fetchPlaylist, fetchSource } from './sources.js';
+import { fetchXtreamEntries, parseXtreamUrl } from './xtream.js';
 import { normalizeXmltvTime } from './time.js';
 import { childTexts, openXmlFile, streamXmltv, XmltvWriter } from './xmltv.js';
 import { validateXmltvFile } from './validate.js';
@@ -24,9 +25,7 @@ export async function generate({ config, env = process.env, fetchImpl = fetch, n
 }
 
 async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
-  log('fetching playlist');
-  const body = await fetchPlaylist(m3uUrl, { fetchImpl, timeoutMs: config.fetchTimeoutMs });
-  const { entries, stats: playlistStats } = await parseM3u(body, { skipVod: config.skipVod });
+  const { entries, stats: playlistStats } = await loadPlaylist({ config, m3uUrl, fetchImpl, log });
   const playlistChannels = toPlaylistChannels(entries);
   log(`playlist: ${playlistChannels.length} live channel ids`);
 
@@ -63,11 +62,13 @@ async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
   const match = matchChannels(playlistChannels, epgChannels, overrides, {
     threshold: config.threshold,
     regionPreference: config.regionPreference,
+    reviewFloor: config.reviewFloor,
   });
 
   const eventRe = new RegExp(config.eventPattern, 'i');
   const withoutGuide = [...match.unmatched, ...match.review.map((r) => r.playlist)];
-  const placeholders = withoutGuide.filter((p) => isEventChannel(p, eventRe));
+  const excludeRe = config.placeholderExclude ? new RegExp(config.placeholderExclude, 'i') : null;
+  const placeholders = withoutGuide.filter((p) => isEventChannel(p, eventRe) && !excludeRe?.test(p.name));
   const placeholderIds = new Set(placeholders.map((p) => p.id));
   const reportInput = {
     generatedAt: now,
@@ -114,6 +115,24 @@ async function run({ config, m3uUrl, fetchImpl, now, dryRun, log }) {
   await rename(`${reportFile}.tmp`, reportFile);
   log(`wrote ${outFile}: ${output.channels} channels, ${output.programmes} programmes`);
   return { report, match, placeholders, unmatched: reportInput.unmatchedNoPlaceholder, output: { ...output, file: outFile, reportFile } };
+}
+
+export async function loadPlaylist({ config, m3uUrl, fetchImpl, log = () => {} }) {
+  const groupFilter = config.groupFilter ? new RegExp(config.groupFilter, 'i') : null;
+  const xtream = config.playlistSource === 'm3u' ? null : parseXtreamUrl(m3uUrl);
+  if (config.playlistSource === 'xtream' && !xtream) {
+    throw new Error('playlistSource is xtream but M3U_URL has no get.php/player_api.php username and password');
+  }
+  if (xtream) {
+    log('fetching playlist (Xtream API)');
+    return fetchXtreamEntries(xtream, { fetchImpl, timeoutMs: config.fetchTimeoutMs, groupFilter });
+  }
+  log('fetching playlist (M3U)');
+  const body = await fetchPlaylist(m3uUrl, { fetchImpl, timeoutMs: config.fetchTimeoutMs });
+  const parsed = await parseM3u(body, { skipVod: config.skipVod });
+  if (!groupFilter) return parsed;
+  const entries = parsed.entries.filter((e) => groupFilter.test(e.group));
+  return { entries, stats: { ...parsed.stats, groupFiltered: parsed.entries.length - entries.length } };
 }
 
 async function writeOutput({ writer, match, placeholders, sources, config, now }) {

@@ -12,7 +12,8 @@ const USAGE = `Usage: epg-remap [options]
 Rewrites public XMLTV EPG channel ids to your playlist's tvg-ids.
 Reads the playlist URL from M3U_URL (environment or .env).
 Optional env: PORT, EPG_ACCESS_TOKEN, EPG_REPORT_AUTH, EPG_REFRESH_HOURS,
-EPG_THRESHOLD, EPG_REGION_PREFERENCE (override config.json).
+EPG_THRESHOLD, EPG_REGION_PREFERENCE, EPG_GROUP_FILTER, EPG_PLAYLIST_SOURCE
+(override config.json).
 
   -c, --config <file>   config file (default: ./config.json if present)
       --dry-run         print the match report, write nothing
@@ -142,6 +143,8 @@ export function envOverrides(env) {
     refreshHours: num(env.EPG_REFRESH_HOURS),
     threshold: num(env.EPG_THRESHOLD),
     regionPreference: env.EPG_REGION_PREFERENCE || undefined,
+    groupFilter: env.EPG_GROUP_FILTER || undefined,
+    playlistSource: env.EPG_PLAYLIST_SOURCE || undefined,
   };
 }
 

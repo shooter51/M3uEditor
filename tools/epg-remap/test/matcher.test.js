@@ -59,8 +59,12 @@ describe('matchChannels', () => {
     expect(r.matched).toEqual([]);
     expect(r.review[0].epg.id).toBe('Discovery.Channel.us2');
     expect(r.review[0].score).toBeLessThan(0.85);
-    // but a lower threshold accepts it
-    expect(matchChannels([pl('M', 'Mystery Channel')], EPG, new Map(), { threshold: 0.5 }).matched).toHaveLength(1);
+    // even a low threshold won't accept it: "mystery" has no counterpart in the candidate
+    const low = matchChannels([pl('M', 'Mystery Channel')], EPG, new Map(), { threshold: 0.5, reviewFloor: 0.4 });
+    expect(low.matched).toHaveLength(0);
+    expect(low.review).toHaveLength(1);
+    // while a genuine typo is accepted at a lower threshold
+    expect(matchChannels([pl('W', 'Wether Nation')], EPG, new Map(), { threshold: 0.5 }).matched).toHaveLength(1);
   });
 
   it('a strict subset name does not steal a different channel', () => {
@@ -112,6 +116,18 @@ describe('matchChannels', () => {
       ['W', 'The.Weather.Channel.HD.us2', 'exact'],
       ['F', 'Fox.News.Channel.HD.us2', 'exact'],
     ]);
+  });
+
+  it('does not auto-accept a one-letter brand difference', () => {
+    const r = matchChannels([pl('N', 'US: NBC SPORTS NETWORK')], [epg('CBS.Sports.Network.HD.us2', ['CBS Sports Network HD'])]);
+    expect(r.matched).toEqual([]);
+    expect(r.review[0].score).toBeCloseTo(0.84);
+  });
+
+  it('candidates below the review floor count as unmatched', () => {
+    const r = matchChannels([pl('M', 'Mystery Channel')], EPG, new Map(), { reviewFloor: 0.8 });
+    expect(r.review).toEqual([]);
+    expect(r.unmatched.map((p) => p.id)).toEqual(['M']);
   });
 
   it('skips EPG display names that normalize to nothing', () => {

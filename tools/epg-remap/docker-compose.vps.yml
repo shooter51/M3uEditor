@@ -13,12 +13,13 @@ services:
       EPG_ACCESS_TOKEN: ${EPG_ACCESS_TOKEN:-}
       EPG_REPORT_AUTH: ${EPG_REPORT_AUTH:-}
       EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-6}
+      EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
       PORT: 8080
     volumes:
       - epgdata:/data
     security_opt:
       - no-new-privileges:true
-    mem_limit: 256m
+    mem_limit: 512m
     pids_limit: 64
     networks:
       - dokploy-network

@@ -20,6 +20,14 @@ cp .env.example .env                 # put your real M3U_URL in here
 cp config.example.json config.json   # optional; defaults are the same
 ```
 
+**Xtream providers.** Many Xtream Codes panels block the `get.php` M3U download (it returns
+odd statuses like 884) and only answer `player_api.php`, which is also what TiviMate uses
+with an Xtream login. When `M3U_URL` is a `get.php` / `player_api.php` link with a username
+and password, the tool reads live channels from the Xtream API instead. `epg_channel_id`
+becomes the tvg-id, and adult streams are skipped. Set `playlistSource` to `m3u` to force
+the plain download. With `groupFilter` (e.g. `^US[|]`) only matching categories are
+requested, one at a time.
+
 `M3U_URL` contains your provider credentials. It is only read from the environment or
 `.env`. The tool never logs it, never writes it to disk, and strips it from error messages.
 `.env`, `config.json` and `overrides.json` are git-ignored.
@@ -76,6 +84,18 @@ similarity.
   or group matches `eventPattern` (default: PPV, EVENT, "vs", "@", "NN: ..."). Other
   unmatched channels stay empty and are listed in the report.
 - VOD entries (`/movie/`, `/series/` URLs) are skipped.
+- Provider decorations are ignored: platform tags (`AT&T:`, `TV:`, `RK:`), feed codes
+  (`(A)`, `(D)`), and superscript tags like `ᴿᴬᵂ ⁶⁰ᶠᵖˢ` or `⁽ᴮᴷ⁾`.
+- Guards on fuzzy matches. A candidate is never auto-accepted when:
+  - a short brand token differs (`NBC` vs `CBS`);
+  - the numbers differ (`Showtime` vs `Showtime 2`);
+  - a playlist word has no close counterpart (`Bally Sports Arizona` vs
+    `Arizona Family Sports`).
+
+  Candidates scoring below `reviewFloor` (0.6) count as unmatched instead of cluttering
+  the review list.
+- Separator rows such as `##### PPV HD/4K #####` never get placeholders
+  (`placeholderExclude`).
 
 ## Output guarantees
 
@@ -104,6 +124,10 @@ See `config.example.json`. Paths in it are relative to the config file.
 |---|---|---|
 | `sources` | US2 + FANDUEL1 | HTTPS only (plain http returns Cloudflare 520 on epgshare01) |
 | `threshold` | `0.85` | minimum fuzzy score to auto-accept |
+| `reviewFloor` | `0.6` | below this a candidate isn't listed for review |
+| `playlistSource` | `auto` | `auto` / `m3u` / `xtream` |
+| `groupFilter` | empty | regex on group-title / Xtream category name |
+| `placeholderExclude` | separator rows | regex; event-looking names that get no placeholder |
 | `regionPreference` | `west` | `west` / `east` / `none` for unqualified names |
 | `overrides` | `overrides.json` | |
 | `outDir` / `cacheDir` | `out` / `cache` | |
@@ -129,6 +153,8 @@ The VPS already runs Traefik on 80/443, so use `docker-compose.dokploy.yml`:
 Without Dokploy, `docker compose up -d --build` with the plain `docker-compose.yml` runs
 it on `127.0.0.1:8080` behind whatever proxy you have. It reads `M3U_URL` from `./.env`.
 
+Env equivalents: `EPG_ACCESS_TOKEN`, `EPG_REPORT_AUTH`, `EPG_REFRESH_HOURS`, `EPG_THRESHOLD`,
+`EPG_REGION_PREFERENCE`, `EPG_GROUP_FILTER`, `EPG_PLAYLIST_SOURCE`, `PORT`.
 The same `EPG_*` variables work outside Docker too. They override `config.json` (see
 `--help`).
 

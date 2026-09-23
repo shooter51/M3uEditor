@@ -2,7 +2,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { envOverrides, main } from '../src/cli.js';
-import { ENV, fakeFetch, fixture, tempDir } from './helpers.js';
+import { ENV, fakeFetch, fixture, M3U_URL, tempDir } from './helpers.js';
 
 let tmp;
 let configFile;
@@ -61,13 +61,13 @@ describe('cli', () => {
   it('writes output and prints a summary', async () => {
     const t = io();
     expect(await main(['-c', configFile, '--out', path.join(tmp.dir, 'guide')], t.deps)).toBe(0);
-    expect(t.out.join('')).toMatch(/wrote .*guide\/epg\.xml\.gz[\s\S]*8 matched, 1 need review, 2 unmatched, 2 placeholders/);
+    expect(t.out.join('')).toMatch(/wrote .*guide\/epg\.xml\.gz[\s\S]*8 matched, 1 need review, 3 unmatched, 2 placeholders/);
     expect(t.err.join('')).not.toContain('fixturepass');
   });
 
   it('reports generation errors with exit 1 and redacts them', async () => {
-    const t = io({ env: { M3U_URL: 'https://provider.example/get.php?username=fixtureuser&password=fixturepass' } });
-    t.deps.fetchImpl = fakeFetch({ 'get.php': () => new Response('', { status: 403 }) });
+    const t = io({ env: { M3U_URL } });
+    t.deps.fetchImpl = fakeFetch({ 'playlist.m3u': () => new Response('', { status: 403 }) });
     expect(await main(['-c', configFile], t.deps)).toBe(1);
     expect(t.err.join('')).toContain('HTTP 403');
   });

@@ -38,3 +38,24 @@ export function tokenSetSimilarity(tokensA, tokensB) {
   const inOrder = ratio(tokensA.join(''), tokensB.join(''));
   return Math.max(ratio(sideA, sideB), joined, inOrder);
 }
+
+// Guards a fuzzy score before it can be auto-accepted:
+//  - short tokens are brand identifiers ("NBC" vs "CBS", "FXX" vs "FX"); each short token of
+//    the playlist name must appear in the candidate, as a token or inside its joined form
+//    ("2" in "espn2");
+//  - longer playlist tokens need a close counterpart ("galazo"~"golazo"), so a leftover word
+//    like "bally" in "Bally Sports Arizona" can't ride on "sports arizona";
+//  - numbers distinguish channels ("Showtime" vs "Showtime 2"), so they must agree both ways.
+// Extra words on the EPG side ("CHSN Chicago Sports Network") are fine.
+export const SHORT_TOKEN = 4;
+const CLOSE_TOKEN = 0.75;
+export function shortTokensAgree(queryTokens, candidateTokens) {
+  const joined = candidateTokens.join('');
+  const covered = (t) =>
+    candidateTokens.includes(t) ||
+    joined.includes(t) ||
+    (t.length > SHORT_TOKEN && candidateTokens.some((c) => ratio(t, c) >= CLOSE_TOKEN));
+  const queryJoined = queryTokens.join('');
+  const numbersOk = candidateTokens.every((t) => !/^\d+$/.test(t) || queryTokens.includes(t) || queryJoined.includes(t));
+  return queryTokens.every(covered) && numbersOk;
+}

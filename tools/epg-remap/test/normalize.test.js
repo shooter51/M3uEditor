@@ -97,3 +97,33 @@ describe('similarity', () => {
     expect(tokenSetSimilarity(['a'], [])).toBe(0);
   });
 });
+
+describe('provider decorations', () => {
+  it.each([
+    ['AT&T: FOOD NETWORK ᴿᴬᵂ', 'foodnetwork'],
+    ['TV: SCRIPPS NEWS ᴿᴬᵂ', 'scrippsnews'],
+    ['PRIME: FANDUEL SPORTS NETWORK EXTRA ᴿᴬᵂ', 'fanduelsportsnetworkextra'],
+    ['US: NBC SPORTS BOSTON (A) ᴿᴬᵂ', 'nbcsportsboston'],
+    ['US: NBC NEW ENGLAND CABLE NEWS (NECN) (D) ᴿᴬᵂ', 'nbcnewenglandcablenewsnecn'],
+    ['World Fishing Network HD (US)', 'worldfishingnetwork'],
+    ['PPV 03: Team A vs Team B', 'teamavsteamb'],
+    ['Very Long Prefix: Name', 'verylongprefixname'],
+  ])('%s -> %s', (name, key) => {
+    expect(normalizeName(name).key).toBe(key);
+  });
+});
+
+describe('shortTokensAgree', () => {
+  it('blocks brand near-misses but allows extra EPG tags and joined digits', async () => {
+    const { shortTokensAgree } = await import('../src/similarity.js');
+    expect(shortTokensAgree(['nbc', 'sports', 'network'], ['cbs', 'sports', 'network'])).toBe(false);
+    expect(shortTokensAgree(['fxx'], ['fx'])).toBe(false);
+    expect(shortTokensAgree(['chicago', 'sports', 'network'], ['chsn', 'chicago', 'sports', 'network'])).toBe(true);
+    expect(shortTokensAgree(['espn', '2'], ['espn2'])).toBe(true);
+    expect(shortTokensAgree(['discovery', 'chanel'], ['discovery', 'channel'])).toBe(true);
+    expect(shortTokensAgree(['showtime'], ['showtime', '2'])).toBe(false);
+    expect(shortTokensAgree(['espn2'], ['espn', '2'])).toBe(true);
+    expect(shortTokensAgree(['bally', 'sports', 'arizona'], ['arizona', 'family', 'sports'])).toBe(false);
+    expect(shortTokensAgree(['cbs', 'sports', 'galazo', 'network'], ['cbs', 'sports', 'golazo', 'network'])).toBe(true);
+  });
+});

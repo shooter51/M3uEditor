@@ -8,9 +8,14 @@ export function buildReport(r) {
     lines.push('', `== ${title} (${count}) ==`);
   };
   lines.push(`epg-remap report — ${r.generatedAt.toISOString()}${r.dryRun ? ' (dry run, nothing written)' : ''}`);
-  lines.push(
-    `playlist: ${r.playlistStats.total} entries, ${r.playlistStats.vodSkipped} VOD skipped, ${r.playlistChannels} live channel ids`,
-  );
+  const ps = r.playlistStats;
+  const extras = [
+    ps.categories !== undefined ? `${ps.categories} categories read` : null,
+    ps.vodSkipped ? `${ps.vodSkipped} VOD skipped` : null,
+    ps.adultSkipped ? `${ps.adultSkipped} adult skipped` : null,
+    ps.groupFiltered ? `${ps.groupFiltered} outside group filter` : null,
+  ].filter(Boolean);
+  lines.push(`playlist: ${ps.total} entries${extras.length ? `, ${extras.join(', ')}` : ''}, ${r.playlistChannels} channel ids`);
   for (const s of r.sources) {
     const progs = s.programmes ? `, ${s.programmes} programmes read` : '';
     lines.push(`source: ${s.url} — ${s.channels} channels${progs}${s.note ? ` [${s.note}]` : ''}`);

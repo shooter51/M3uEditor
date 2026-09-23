@@ -3,9 +3,18 @@
 //   "USA: HBO (Pacific)" -> tokens [hbo], region "west"
 //   "HBO East HD"        -> tokens [hbo], region "east"
 //   "The Weather Channel" -> tokens [weather]
+//   "AT&T: FOOD NETWORK ᴿᴬᵂ" -> tokens [food, network]
 
 const COUNTRY_PREFIX = /^\s*(?:us|usa|u\.s\.a?\.?)\s*(?:\||:|-)\s*/i;
-const QUALITY = new Set(['hd', 'fhd', 'uhd', '4k', 'sd', 'hevc', 'h265', '1080p', '720p']);
+// Provider/platform tags before a colon or pipe: "AT&T: ", "TV: ", "RK: ", "PRIME: ", "PPV 03: ".
+const SHORT_PREFIX = /^\s*[\p{L}\p{N}&+ ]{1,8}\s*[:|]\s*(?=\S)/u;
+// Feed codes like "(A)", "(D)", "(PC)"; longer parentheticals ("(NECN)") are kept.
+const FEED_CODE = /\(\s*[\p{L}\p{N}]{1,3}\s*\)/gu;
+// Quality / feed tags. Superscript decorations like "ᴿᴬᵂ ⁶⁰ᶠᵖˢ" or "⁽ᴮᴷ⁾" casefold to these too.
+const QUALITY = new Set([
+  'hd', 'fhd', 'uhd', '4k', '8k', 'sd', 'hdr', 'hevc', 'h265', '1080p', '720p',
+  'raw', '60fps', '50fps', '30fps', 'vip', 'bk', 'backup',
+]);
 const REGIONS = {
   east: 'east',
   eastern: 'east',
@@ -31,11 +40,13 @@ export function normalizeName(name, { stripFiller = true } = {}) {
     prev = s;
     s = s.replace(COUNTRY_PREFIX, '');
   }
+  s = s.replace(SHORT_PREFIX, '');
   let region = null;
   s = s.replace(PAREN_REGION, (_, r) => {
     region = REGIONS[r.toLowerCase()];
     return ' ';
   });
+  s = s.replace(FEED_CODE, ' ');
   const tokens = s.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   // Strip trailing quality / bare regional words in any order: "HBO East HD", "HBO HD East".
   while (tokens.length > 1) {

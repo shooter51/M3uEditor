@@ -21,9 +21,14 @@ export const DEFAULTS = Object.freeze({
   outputFile: 'epg.xml.gz',
   reportFile: 'report.txt',
   eventPattern: DEFAULT_EVENT_PATTERN,
+  // Event-looking rows that are really list separators ("##### PPV HD/4K #####").
+  placeholderExclude: '^\\W*[#=*~_]{3,}',
+  reviewFloor: 0.6, // below this, a candidate isn't worth reviewing; the channel is "unmatched"
   placeholderHours: 24,
   placeholderSlotHours: 4,
   skipVod: true,
+  playlistSource: 'auto', // auto | m3u | xtream (auto: Xtream API when M3U_URL is a get.php link)
+  groupFilter: '', // regex on group-title / Xtream category; empty = all groups
   host: '0.0.0.0',
   port: 8080,
   refreshHours: 6,
@@ -69,6 +74,7 @@ export function validateConfig(cfg) {
     }
   }
   if (!(cfg.threshold > 0 && cfg.threshold <= 1)) errors.push('threshold must be in (0, 1]');
+  if (!(cfg.reviewFloor >= 0 && cfg.reviewFloor <= cfg.threshold)) errors.push('reviewFloor must be in [0, threshold]');
   if (!['west', 'east', 'none'].includes(cfg.regionPreference)) {
     errors.push('regionPreference must be west, east or none');
   }
@@ -78,11 +84,14 @@ export function validateConfig(cfg) {
   if (!(cfg.placeholderSlotHours > 0) || !(cfg.placeholderHours >= cfg.placeholderSlotHours)) {
     errors.push('placeholderHours must be >= placeholderSlotHours > 0');
   }
-  try {
-    new RegExp(cfg.eventPattern, 'i');
-  } catch {
-    errors.push('eventPattern is not a valid regex');
+  for (const key of ['eventPattern', 'groupFilter', 'placeholderExclude']) {
+    try {
+      new RegExp(cfg[key], 'i');
+    } catch {
+      errors.push(`${key} is not a valid regex`);
+    }
   }
+  if (!['auto', 'm3u', 'xtream'].includes(cfg.playlistSource)) errors.push('playlistSource must be auto, m3u or xtream');
   if (cfg.accessToken && !/^[A-Za-z0-9_-]{8,}$/.test(cfg.accessToken)) {
     errors.push('accessToken must be 8+ chars of [A-Za-z0-9_-]');
   }
