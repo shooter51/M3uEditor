@@ -26,7 +26,7 @@ services:
       labels:
         - traefik.enable=true
         - traefik.swarm.network=permit-net
-        - traefik.http.routers.epg-remap.rule=Host(`${EPG_HOST:-epg.outtherehq.com}`)
+        - traefik.http.routers.epg-remap.rule=Host(`${EPG_HOST:-epg.outherehq.com}`)
         - traefik.http.routers.epg-remap.entrypoints=websecure
         - traefik.http.routers.epg-remap.tls.certresolver=letsencrypt
         - traefik.http.services.epg-remap.loadbalancer.server.port=8080

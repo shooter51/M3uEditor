@@ -4,8 +4,8 @@
 #   Environment:  M3U_URL=...           (required; provider credentials, stays in Dokploy)
 #                 EPG_ACCESS_TOKEN=...  (recommended; `openssl rand -hex 16`)
 #                 EPG_REPORT_AUTH=user:pass (optional)
-#   Domains:      epg.outtherehq.com -> service epg-remap, port 8080, HTTPS on
-# TiviMate EPG URL: https://epg.outtherehq.com/<EPG_ACCESS_TOKEN>/epg.xml.gz
+#   Domains:      epg.outherehq.com -> service epg-remap, port 8080, HTTPS on
+# TiviMate EPG URL: https://epg.outherehq.com/<EPG_ACCESS_TOKEN>/epg.xml.gz
 services:
   epg-remap:
     build: .

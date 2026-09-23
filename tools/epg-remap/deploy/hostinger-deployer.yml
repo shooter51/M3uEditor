@@ -16,7 +16,7 @@ services:
       EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-2}
       EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
       EPG_REF: ${EPG_REF:-epg-remap}
-      EPG_HOST: ${EPG_HOST:-epg.outtherehq.com}
+      EPG_HOST: ${EPG_HOST:-epg.outherehq.com}
     entrypoint: ["sh", "-ec"]
     command:
       - |
