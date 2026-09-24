@@ -45,6 +45,7 @@ export const DEFAULTS = Object.freeze({
   guideDays: 3, // keep listings up to this many days ahead
   guidePastHours: 6, // ...and from this many hours back
   slimProgrammes: true, // keep only what a guide app shows (see pipeline.slimChildren)
+  localizeProgrammeText: true, // rewrite "(US/Eastern)" times in programme text to displayZone
   placeholderHours: 24,
   placeholderSlotHours: 4,
   skipVod: true,

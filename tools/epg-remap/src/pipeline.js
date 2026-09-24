@@ -10,6 +10,7 @@ import { fetchPlaylist, fetchSource } from './sources.js';
 import { fetchXtreamEntries, parseXtreamUrl } from './xtream.js';
 import { formatXmltvTime, parseXmltvTime } from './time.js';
 import { parseEventName } from './events.js';
+import { localizeProgrammeChildren } from './eventtime.js';
 import { childTexts, openXmlFile, streamXmltv, XmltvWriter } from './xmltv.js';
 import { validateXmltvFile } from './validate.js';
 
@@ -213,7 +214,8 @@ async function writeOutput({ writer, match, placeholders, sources, config, now }
         const attrs = { ...el.attrs, start: formatXmltvTime(startDate) };
         if (stopDate) attrs.stop = formatXmltvTime(stopDate);
         else delete attrs.stop;
-        const children = config.slimProgrammes ? slimChildren(el.children) : el.children;
+        let children = config.slimProgrammes ? slimChildren(el.children) : el.children;
+        if (config.localizeProgrammeText) children = localizeProgrammeChildren(children, config.eventTime);
         for (const p of playlists) {
           writer.writeElement({ ...el, attrs: { ...attrs, channel: p.id }, children });
           out.programmes++;

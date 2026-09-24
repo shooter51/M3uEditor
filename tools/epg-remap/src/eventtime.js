@@ -116,6 +116,46 @@ export function formatInZone(date, zone, label) {
   return `${s.replace(',', '').replace(/ /g, ' ')}${label ? ` ${label}` : ''}`;
 }
 
+// Rewrite absolute times written into programme text ("10/04/2026 07:00 PM (US/Eastern)")
+// into the display zone ("10/04/2026 04:00 PM (PT)"). Only this exact labeled shape is touched.
+const TZ_LABELS = {
+  'US/Eastern': 'America/New_York', 'US/Central': 'America/Chicago',
+  'US/Mountain': 'America/Denver', 'US/Pacific': 'America/Los_Angeles',
+};
+const LABELED_MDY = /(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})\s*([AP]M)\s*\((US\/(?:Eastern|Central|Mountain|Pacific))\)/g;
+
+export function localizeTimesInText(text, opts = DEFAULT_TIME_OPTIONS) {
+  return String(text).replace(LABELED_MDY, (whole, mo, d, y, h, mi, ap, tz) => {
+    const src = TZ_LABELS[tz];
+    if (!src) return whole;
+    let hour = +h % 12;
+    if (/p/i.test(ap)) hour += 12;
+    const date = zonedToDate({ year: +y, month: +mo - 1, day: +d, hour, minute: +mi }, src);
+    if (Number.isNaN(date.getTime())) return whole;
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', {
+        timeZone: opts.displayZone, month: '2-digit', day: '2-digit', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: true,
+      }).formatToParts(date).map((x) => [x.type, x.value]),
+    );
+    const label = opts.displayLabel ? ` (${opts.displayLabel})` : '';
+    return `${p.month}/${p.day}/${p.year} ${p.hour}:${p.minute} ${p.dayPeriod}${label}`;
+  });
+}
+
+// Run the localizer over the text inside title/sub-title/desc of a programme's children.
+const LOCALIZE_IN = new Set(['title', 'sub-title', 'desc']);
+export function localizeProgrammeChildren(children, opts = DEFAULT_TIME_OPTIONS) {
+  let changed = false;
+  const out = children.map((c) => {
+    if (typeof c === 'string' || !LOCALIZE_IN.has(c.name)) return c;
+    const kids = c.children.map((t) => (typeof t === 'string' ? localizeTimesInText(t, opts) : t));
+    if (kids.some((t, i) => t !== c.children[i])) changed = true;
+    return { ...c, children: kids };
+  });
+  return changed ? out : children;
+}
+
 // Resolve parsed parts to an instant, or null if the parts are not a real date.
 export function resolveStart(parts, name, now, opts = DEFAULT_TIME_OPTIONS) {
   const year = parts.year ?? inferYear(parts, now);

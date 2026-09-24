@@ -95,3 +95,24 @@ describe('event times', () => {
     expect(parseEventName('A vs B').empty).toBe(false);
   });
 });
+
+describe('localizeTimesInText', () => {
+  it('rewrites (US/Eastern) times in programme text to Pacific', async () => {
+    const { localizeTimesInText } = await import('../src/eventtime.js');
+    expect(localizeTimesInText('Next game: GSW at LA Clippers at 10/04/2026 07:00 PM (US/Eastern)'))
+      .toBe('Next game: GSW at LA Clippers at 10/04/2026 04:00 PM (PT)');
+    expect(localizeTimesInText('1/2/2026 12:00 PM (US/Central)')).toBe('01/02/2026 10:00 AM (PT)');
+    expect(localizeTimesInText('no time here')).toBe('no time here');
+  });
+
+  it('localizes only title/sub-title/desc text of a programme', async () => {
+    const { localizeProgrammeChildren } = await import('../src/eventtime.js');
+    const kids = [
+      { name: 'title', attrs: {}, children: ['Game at 10/04/2026 07:00 PM (US/Eastern)'] },
+      { name: 'category', attrs: {}, children: ['10/04/2026 07:00 PM (US/Eastern)'] },
+    ];
+    const out = localizeProgrammeChildren(kids);
+    expect(out[0].children[0]).toContain('04:00 PM (PT)');
+    expect(out[1].children[0]).toBe('10/04/2026 07:00 PM (US/Eastern)');
+  });
+});
