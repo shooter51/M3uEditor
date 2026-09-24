@@ -8,7 +8,7 @@
 // viewer's zone (see eventtime.js for how the source zone is decided), and whether the slot
 // is empty or finished.
 
-import { DEFAULT_TIME_OPTIONS, TIME_PATTERNS, formatInZone, resolveStart } from './eventtime.js';
+import { DEFAULT_TIME_OPTIONS, TIME_PATTERNS, formatInZone, localizeBareClock, resolveStart } from './eventtime.js';
 
 const EMPTY_MARKERS = /NO EVENTS? (?:STREAMING|SCHEDULED)|NO EVENT\b|OFF ?AIR|\bOFFLINE\b/i;
 const STATUS = /^\s*(ENDED|END|FINISHED|FINAL|LIVE( NOW)?|UPCOMING|SOON)\s*$/i;
@@ -61,7 +61,7 @@ export function parseEventName(rawName, { now = new Date(), time = DEFAULT_TIME_
 
   // The event is the most descriptive remaining segment.
   let title = segments.sort((a, b) => letters(b) - letters(a))[0] ?? '';
-  title = cleanTitle(title);
+  title = localizeBareClock(cleanTitle(title), now, time);
   if (!title || letters(title) < 3 || isBareLabel(title)) {
     return { title: null, when, start, status, empty: true };
   }
@@ -70,8 +70,10 @@ export function parseEventName(rawName, { now = new Date(), time = DEFAULT_TIME_
 
 function cleanTitle(t) {
   let s = t;
+  // Leading slot number like "01 - Title".
+  s = s.replace(/^\s*\d{1,3}\s*[-–]\s+/, '');
   // "Flo (FLSP) 10: Title", "UFC 05 : Title", "PPV 03: Title" -> "Title" when a real title follows.
-  s = s.replace(/^[^:|]{0,24}?\d+\s*:\s*(?=\S.{3,})/u, '');
+  s = s.replace(/^[^:|]{0,24}?\d+\s*:(?!\d{2})\s*(?=\S.{3,})/u, '');
   // "LIVE EVENT 01 - Title" -> "Title"
   s = s.replace(/^(?:LIVE\s+)?EVENTS?\s*\d+\s*[-:]\s*(?=\S)/i, '');
   // "Title :MLS 01" trailing slot label.

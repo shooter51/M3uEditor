@@ -143,6 +143,28 @@ export function localizeTimesInText(text, opts = DEFAULT_TIME_OPTIONS) {
   });
 }
 
+// A bare clock with am/pm ("8:15pm") and no date/zone: assume the source zone (Eastern) using
+// today's date for the DST offset, and rewrite to the display zone ("5:15pm PT"). Requires the
+// am/pm suffix attached (no space), so "7:00" or "3 am" in a show name is left alone.
+export function localizeBareClock(text, now = new Date(), opts = DEFAULT_TIME_OPTIONS) {
+  const d = Object.fromEntries(
+    new Intl.DateTimeFormat('en-US', { timeZone: opts.sourceZone, year: 'numeric', month: 'numeric', day: 'numeric' })
+      .formatToParts(now).map((x) => [x.type, x.value]),
+  );
+  return String(text).replace(/\b(\d{1,2})(?::(\d{2}))?([ap]m)\b/gi, (whole, h, mi, ap) => {
+    if (+h < 1 || +h > 12 || (mi && +mi > 59)) return whole;
+    const hour = (+h % 12) + (/p/i.test(ap) ? 12 : 0);
+    const date = zonedToDate({ year: +d.year, month: +d.month - 1, day: +d.day, hour, minute: mi ? +mi : 0 }, opts.sourceZone);
+    if (Number.isNaN(date.getTime())) return whole;
+    const p = Object.fromEntries(
+      new Intl.DateTimeFormat('en-US', { timeZone: opts.displayZone, hour: 'numeric', minute: '2-digit', hour12: true })
+        .formatToParts(date).map((x) => [x.type, x.value]),
+    );
+    const mins = mi ? `:${p.minute}` : '';
+    return `${p.hour}${mins}${p.dayPeriod.toLowerCase()}${opts.displayLabel ? ` ${opts.displayLabel}` : ''}`;
+  });
+}
+
 // Run the localizer over the text inside title/sub-title/desc of a programme's children.
 const LOCALIZE_IN = new Set(['title', 'sub-title', 'desc']);
 export function localizeProgrammeChildren(children, opts = DEFAULT_TIME_OPTIONS) {

@@ -22,7 +22,7 @@ describe('parseEventName (real provider formats)', () => {
       'UFC 00 : DANA WHITES CONTENDER SERIES: SEASON 10, WEEK 7 start:2026-09-23 00:55:00 stop:2026-09-23 05:00:00',
       'DANA WHITES CONTENDER SERIES: SEASON 10, WEEK 7 (Sep 22 5:55 PM PT)',
     ],
-    ['LIVE EVENT 02 - 6pm FloRacing Night Lincoln Park', '6pm FloRacing Night Lincoln Park'],
+    ['LIVE EVENT 02 - 6pm FloRacing Night Lincoln Park', '3pm PT FloRacing Night Lincoln Park'],
     ['PPV EVENT 01: Kings Speedway (9.22 9:15 PM ET)', 'Kings Speedway (Sep 22 6:15 PM PT)'],
     ['PPV 03: Team A vs Team B', 'Team A vs Team B'],
     ['Boxing 7: Jake Paul vs Anthony Joshua', 'Jake Paul vs Anthony Joshua'],
@@ -114,5 +114,23 @@ describe('localizeTimesInText', () => {
     const out = localizeProgrammeChildren(kids);
     expect(out[0].children[0]).toContain('04:00 PM (PT)');
     expect(out[1].children[0]).toBe('10/04/2026 07:00 PM (US/Eastern)');
+  });
+});
+
+describe('localizeBareClock', () => {
+  it('converts bare am/pm clock times (assumed Eastern) to the display zone', async () => {
+    const { localizeBareClock } = await import('../src/eventtime.js');
+    const now = new Date('2026-09-23T19:30:00Z');
+    expect(localizeBareClock('MNF 8:15pm Eagles at Bears', now)).toBe('MNF 5:15pm PT Eagles at Bears');
+    expect(localizeBareClock('1pm Chargers at Bills', now)).toBe('10am PT Chargers at Bills');
+    expect(localizeBareClock('no clock here', now)).toBe('no clock here');
+    expect(localizeBareClock('at 7:00 sharp', now)).toBe('at 7:00 sharp');
+    expect(localizeBareClock('3 am wakeup', now)).toBe('3 am wakeup');
+    expect(localizeBareClock('6pm main card', now)).toBe('3pm PT main card');
+  });
+
+  it('does not truncate a clock time in an event title', () => {
+    const now = new Date('2026-09-23T19:30:00Z');
+    expect(guide('NFL | - MNF 8:15pm Eagles at Bears').replace(/^.*?(\d)/, '$1')).toContain('5:15pm PT');
   });
 });
