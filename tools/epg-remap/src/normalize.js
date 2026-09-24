@@ -30,6 +30,7 @@ const RENAMES = [
   [/\bdisney jr\b/g, 'disney junior'],
   [/\bespn news\b/g, 'espnews'],
   [/\s*-?\s*\bmusic television\b/g, ''],
+  [/\blos angeles\b/g, 'la'],
   [/\s*&\s*/g, ' and '],
 ];
 // Trailing feed-provider tags on EPG names: "Spectrum News 1 - Worcester - STVA".
