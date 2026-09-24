@@ -1,0 +1,35 @@
+# epg-remap for Dokploy (Traefik terminates TLS on 80/443).
+#
+# In Dokploy: Create Compose app -> this repo, compose path tools/epg-remap/docker-compose.dokploy.yml
+#   Environment:  M3U_URL=...           (required; provider credentials, stays in Dokploy)
+#                 EPG_ACCESS_TOKEN=...  (recommended; `openssl rand -hex 16`)
+#                 EPG_REPORT_AUTH=user:pass (optional)
+#   Domains:      epg.outherehq.com -> service epg-remap, port 8080, HTTPS on
+# TiviMate EPG URL: https://epg.outherehq.com/<EPG_ACCESS_TOKEN>/epg.xml.gz
+services:
+  epg-remap:
+    build: .
+    restart: unless-stopped
+    init: true
+    environment:
+      M3U_URL: ${M3U_URL:?M3U_URL must be set}
+      EPG_ACCESS_TOKEN: ${EPG_ACCESS_TOKEN:-}
+      EPG_REPORT_AUTH: ${EPG_REPORT_AUTH:-}
+      EPG_REFRESH_HOURS: ${EPG_REFRESH_HOURS:-6}
+      EPG_GROUP_FILTER: ${EPG_GROUP_FILTER:-}
+      PORT: 8080
+    volumes:
+      - epgdata:/data
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    pids_limit: 64
+    networks:
+      - dokploy-network
+
+volumes:
+  epgdata:
+
+networks:
+  dokploy-network:
+    external: true

@@ -1,0 +1,22 @@
+{
+  "sources": [
+    "https://epgshare01.online/epgshare01/epg_ripper_US2.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_FANDUEL1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_US_SPORTS1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_DIRECTVSPORTS1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_DRAFTKINGS1.xml.gz",
+    "https://epgshare01.online/epgshare01/epg_ripper_PEACOCK1.xml.gz"
+  ],
+  "threshold": 0.85,
+  "regionPreference": "west",
+  "overrides": "overrides.json",
+  "outDir": "out",
+  "cacheDir": "cache",
+  "placeholderHours": 24,
+  "placeholderSlotHours": 4,
+  "host": "0.0.0.0",
+  "port": 8080,
+  "refreshHours": 6,
+  "accessToken": "",
+  "reportAuth": ""
+}

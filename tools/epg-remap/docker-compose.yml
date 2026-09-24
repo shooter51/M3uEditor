@@ -1,0 +1,18 @@
+# epg-remap on a VPS. M3U_URL comes from ./.env (never committed).
+# The app only listens on the docker network / localhost; put a TLS reverse proxy in front.
+services:
+  epg-remap:
+    build: .
+    container_name: epg-remap
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/data
+    ports:
+      - "127.0.0.1:8080:8080"
+    mem_limit: 512m
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
